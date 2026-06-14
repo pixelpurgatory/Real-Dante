@@ -3,7 +3,13 @@
 // DANTE: The Descent — core utilities, input, constants
 // ============================================================
 
-const VW = 960, VH = 540;          // internal resolution
+// Internal resolution. VH (vertical gameplay extent) is fixed; VW (how wide
+// a slice of the world we show) adapts to the screen's aspect ratio so the
+// canvas fills the display with no letterbox — phones and PC alike.
+let VW = 960;                      // current view width (recomputed by fitCanvas)
+const VH = 540;                    // fixed view height
+const VW_MIN = 800, VW_MAX = 1366; // clamp range for VW
+const VW_BAKE = VW_MAX;            // background layers are baked this wide
 const WORLD_W = 10800;             // total world width
 const GRAV = 1500;
 const KILL_Y = 720;                // fell into the abyss
@@ -12,14 +18,28 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-// fit canvas to window, integer-ish scale, keep aspect
+// optional hook other modules register to react to a viewport change
+let resizeHook = null;
+
+// fit canvas to the viewport: pick VW from the live aspect ratio, then scale
+// to fill without distortion. Re-lays out touch controls on every change.
 function fitCanvas() {
-  const ww = window.innerWidth, wh = window.innerHeight;
+  const ww = Math.max(1, window.innerWidth), wh = Math.max(1, window.innerHeight);
+  // aspect-matched width keeps pixels square; clamp so it can't get extreme
+  VW = Math.round(VH * ww / wh);
+  if (VW < VW_MIN) VW = VW_MIN;
+  if (VW > VW_MAX) VW = VW_MAX;
+  canvas.width = VW;
+  canvas.height = VH;
+  ctx.imageSmoothingEnabled = false; // reset — changing canvas size clears it
   const s = Math.min(ww / VW, wh / VH);
-  canvas.style.width = Math.floor(VW * s) + 'px';
-  canvas.style.height = Math.floor(VH * s) + 'px';
+  canvas.style.width = Math.round(VW * s) + 'px';
+  canvas.style.height = Math.round(VH * s) + 'px';
+  if (resizeHook) resizeHook();
 }
 window.addEventListener('resize', fitCanvas);
+window.addEventListener('orientationchange', () => setTimeout(fitCanvas, 120));
+if (window.visualViewport) window.visualViewport.addEventListener('resize', fitCanvas);
 fitCanvas();
 
 // ---------- math helpers ----------
@@ -84,7 +104,7 @@ const Input = {
   down()   { return this.keys['KeyS'] || this.keys['ArrowDown']  || this.vheld.down; },
   jumpP()  { return this.pressed['Space'] || this.pressed['KeyZ'] || this.vpressed.jump; },
   jump()   { return this.keys['Space'] || this.keys['KeyZ'] || this.vheld.jump; },
-  atkP()   { return this.pressed['KeyJ'] || this.pressed['KeyX'] || this.mousePressed || this.vpressed.atk; },
+  atkP()   { return this.pressed['KeyJ'] || this.pressed['KeyX'] || this.mousePressed || this.vheld.atk; },
   dashP()  { return this.pressed['ShiftLeft'] || this.pressed['ShiftRight'] || this.pressed['KeyC'] || this.pressed['KeyK'] || this.vpressed.dash; },
   heal()   { return this.keys['KeyF'] || this.keys['KeyH'] || this.vheld.heal; },
   pauseP() { return this.pressed['KeyP'] || this.pressed['Escape'] || this.vpressed.pause; },

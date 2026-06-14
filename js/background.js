@@ -44,7 +44,7 @@ const BG = {
   //   farX = camX0 * FAR_P + sx
   // ----------------------------------------------------------
   bakeFar() {
-    const W = WORLD_W * this.FAR_P + VW + 100;
+    const W = WORLD_W * this.FAR_P + VW_BAKE + 100;
     this.far = this.mkCanvas(W, VH);
     const g = this.far.getContext('2d');
 
@@ -223,7 +223,7 @@ const BG = {
   // MID LAYER (parallax 0.55)
   // ----------------------------------------------------------
   bakeMid() {
-    const W = WORLD_W * this.MID_P + VW + 100;
+    const W = WORLD_W * this.MID_P + VW_BAKE + 100;
     this.mid = this.mkCanvas(W, VH);
     const g = this.mid.getContext('2d');
     const P = this.MID_P;

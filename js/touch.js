@@ -11,28 +11,32 @@ const TouchUI = {
   buttons: [],
   prevHeld: {},
 
-  // layout is rebuilt for the current resolution (VW x VH is fixed here)
+  // layout is rebuilt for the current resolution; margins clear the iOS
+  // home-indicator / notch safe areas, buttons sized for reliable taps.
   layout() {
     const b = [];
+    const mx = 40;            // side safe margin
+    const mb = 54;            // bottom safe margin (home indicator)
     // movement d-pad (left side)
-    const dpx = 96, dpy = VH - 92, R = 34, g = 46;
+    const dpx = mx + 60, dpy = VH - mb - 56, R = 38, g = 50;
     b.push({ id: 'left',  shape: 'circ', x: dpx - g, y: dpy, r: R, icon: '◀' });
     b.push({ id: 'right', shape: 'circ', x: dpx + g, y: dpy, r: R, icon: '▶' });
-    b.push({ id: 'up',    shape: 'circ', x: dpx, y: dpy - g, r: 30, icon: '▲' });
-    b.push({ id: 'down',  shape: 'circ', x: dpx, y: dpy + g, r: 30, icon: '▼' });
+    b.push({ id: 'up',    shape: 'circ', x: dpx, y: dpy - g, r: 32, icon: '▲' });
+    b.push({ id: 'down',  shape: 'circ', x: dpx, y: dpy + g, r: 32, icon: '▼' });
     // action cluster (right side)
-    const ax = VW - 80, ay = VH - 80;
-    b.push({ id: 'jump', shape: 'circ', x: ax,       y: ay,        r: 42, icon: 'JUMP', col: '#6e8adc' });
-    b.push({ id: 'atk',  shape: 'circ', x: ax - 96,  y: ay - 8,    r: 38, icon: 'STRIKE', col: '#d86a6a' });
-    b.push({ id: 'dash', shape: 'circ', x: ax - 70,  y: ay - 92,   r: 32, icon: 'DASH', col: '#6ec0c8' });
-    b.push({ id: 'heal', shape: 'circ', x: ax + 8,   y: ay - 108,  r: 30, icon: 'HEAL', col: '#cfa850' });
-    // pause (top-right)
-    b.push({ id: 'pause', shape: 'circ', x: VW - 28, y: 28, r: 18, icon: '❚❚' });
+    const ax = VW - mx - 48, ay = VH - mb - 48;
+    b.push({ id: 'jump', shape: 'circ', x: ax,       y: ay,        r: 46, icon: 'JUMP', col: '#6e8adc' });
+    b.push({ id: 'atk',  shape: 'circ', x: ax - 104, y: ay - 6,    r: 42, icon: 'STRIKE', col: '#d86a6a' });
+    b.push({ id: 'dash', shape: 'circ', x: ax - 78,  y: ay - 100,  r: 34, icon: 'DASH', col: '#6ec0c8' });
+    b.push({ id: 'heal', shape: 'circ', x: ax + 6,   y: ay - 116,  r: 32, icon: 'HEAL', col: '#cfa850' });
+    // pause (top-right, clear of HUD)
+    b.push({ id: 'pause', shape: 'circ', x: VW - 32, y: 32, r: 20, icon: '❚❚' });
     this.buttons = b;
   },
 
   init() {
     this.layout();
+    resizeHook = () => this.layout();   // re-place controls on rotate/resize
     const opts = { passive: false };
     canvas.addEventListener('touchstart', e => this.onTouch(e, 'start'), opts);
     canvas.addEventListener('touchmove',  e => this.onTouch(e, 'move'),  opts);
@@ -64,7 +68,16 @@ const TouchUI = {
     for (const t of e.touches) {
       this.touches[t.identifier] = this.toVirtual(t);
     }
-    // a tap that isn't on any control acts as "confirm" (title / victory / advance)
+    // On menus (title / victory / not yet playing) there are no control
+    // buttons — ANY tap is "confirm". This stops invisible button regions
+    // from swallowing taps meant to start the game.
+    const inMenu = (typeof Game === 'undefined') || Game.state !== 'play';
+    if (inMenu) {
+      if (phase === 'start') Input.vpressed.confirm = true;
+      Input.vheld = {}; this.heldNow = {}; this.prevHeld = {};
+      return;
+    }
+    // In play, a tap off all controls also confirms (harmless during play).
     if (phase === 'start' && e.changedTouches.length) {
       const v = this.toVirtual(e.changedTouches[0]);
       if (!this.hitButton(v.x, v.y)) Input.vpressed.confirm = true;
@@ -80,11 +93,11 @@ const TouchUI = {
       const btn = this.hitButton(p.x, p.y);
       if (btn) held[btn.id] = true;
     }
-    // map button ids -> input actions
-    const map = { left:'left', right:'right', up:'up', down:'down', jump:'jump', heal:'heal' };
+    // held actions (atk is held so it auto-repeats, gated by the attack cooldown)
+    const map = { left:'left', right:'right', up:'up', down:'down', jump:'jump', heal:'heal', atk:'atk' };
     for (const k in map) Input.vheld[map[k]] = !!held[k];
     // edge-triggered actions
-    for (const k of ['jump', 'atk', 'dash', 'pause']) {
+    for (const k of ['jump', 'dash', 'pause']) {
       if (held[k] && !this.prevHeld[k]) Input.vpressed[k] = true;
     }
     this.prevHeld = held;
