@@ -31,12 +31,23 @@ no server required. Click or press a key once to enable sound.
 
 ### Mobile (phone / tablet)
 
-Works in the mobile browser too. On-screen touch controls appear automatically
-the first time you touch the screen (desktop stays mouse + keyboard, untouched):
-a movement pad on the left and Jump / Strike / Dash / Heal buttons on the right,
-plus a pause button. Up/Down on the pad aim the up- and down-strikes. Hold the
-phone in **landscape** — a prompt asks you to rotate if you're in portrait. Tap
-anywhere to start or to descend again.
+Works in the mobile browser on iOS and Android (Chrome, Brave, Safari). On-screen
+touch controls appear automatically the first time you touch the screen (desktop
+stays mouse + keyboard, untouched): a movement pad, Jump / Strike / Dash / Heal
+buttons (hold Strike to auto-attack), and pause + fullscreen buttons. Up/Down on
+the pad aim the up- and down-strikes.
+
+- **Landscape** fills the whole screen at the device's aspect ratio — no black
+  bars — and requests true fullscreen (hides browser chrome on Android).
+- **Portrait** is fully playable too: the game shows in a band at the top with
+  the controls in a comfortable thumb area below (a hint suggests rotating for a
+  larger view).
+- The view re-fits cleanly on rotation, the screen is kept awake during play,
+  and internal render resolution is capped for a steady 60 fps.
+- Tap anywhere on a menu to start or to descend again.
+
+For an app-like, chrome-free experience on iPhone (where Safari can't hide its
+bars via script), use **Share → Add to Home Screen** and launch from the icon.
 
 ## Combat depth
 
