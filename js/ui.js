@@ -278,7 +278,12 @@ const Vignette = {
     g.fillStyle = gr;
     g.fillRect(0, 0, VW, VH);
   },
-  draw() { ctx.drawImage(this.cv, 0, 0); },
+  draw() {
+    // rebake if the view width changed (rotation) so it always covers the
+    // whole view — otherwise its edge shows as a vertical seam
+    if (!this.cv || this.cv.width !== VW || this.cv.height !== VH) this.init();
+    ctx.drawImage(this.cv, 0, 0);
+  },
 };
 
 // ---------------- screens ----------------
