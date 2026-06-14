@@ -26,6 +26,7 @@ const Game = {
   init() {
     BG.init();
     Vignette.init();
+    TouchUI.init();
     this.resetWorld(true);
   },
 
@@ -117,6 +118,9 @@ const Game = {
     this.time += dt;
     AudioSys.update();
 
+    // on a phone held upright, wait for landscape before running the game
+    if (TouchUI.portrait()) return;
+
     if (Input.muteP()) AudioSys.toggleMute();
 
     if (this.state === 'title') {
@@ -135,7 +139,7 @@ const Game = {
 
     if (this.state === 'victory') {
       this.victoryT += dt;
-      if (this.victoryT > 2 && Input.pressed['KeyR']) {
+      if (this.victoryT > 2 && Input.restartP()) {
         this.state = 'title';
         this.titleCam = 0; this.titleDir = 1;
         this.resetWorld(true);
@@ -404,6 +408,13 @@ const Game = {
 
     if (this.state === 'victory') {
       Screens.drawVictory(this.victoryT, this.stats, this.time);
+    }
+
+    // mobile overlays, drawn on top of everything
+    if (TouchUI.portrait()) {
+      TouchUI.drawRotatePrompt();
+    } else if (TouchUI.active && this.state === 'play') {
+      TouchUI.draw();
     }
   },
 };

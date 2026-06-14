@@ -50,6 +50,9 @@ const Input = {
   mouseDown: false,
   mousePressed: false,
   anyKey: false,
+  // virtual (touch) input, merged into the accessors below
+  vheld: {},            // action -> bool (held this frame)
+  vpressed: {},         // action -> bool (went down this frame)
 
   init() {
     window.addEventListener('keydown', e => {
@@ -65,27 +68,29 @@ const Input = {
       AudioSys.unlock();
     });
     window.addEventListener('mouseup', e => { if (e.button === 0) this.mouseDown = false; });
-    window.addEventListener('blur', () => { this.keys = {}; this.mouseDown = false; });
+    window.addEventListener('blur', () => { this.keys = {}; this.mouseDown = false; this.vheld = {}; });
   },
 
   endFrame() {
     this.pressed = {};
     this.mousePressed = false;
     this.anyKey = false;
+    this.vpressed = {};
   },
 
-  left()   { return this.keys['KeyA'] || this.keys['ArrowLeft']; },
-  right()  { return this.keys['KeyD'] || this.keys['ArrowRight']; },
-  up()     { return this.keys['KeyW'] || this.keys['ArrowUp']; },
-  down()   { return this.keys['KeyS'] || this.keys['ArrowDown']; },
-  jumpP()  { return this.pressed['Space'] || this.pressed['KeyZ']; },
-  jump()   { return this.keys['Space'] || this.keys['KeyZ']; },
-  atkP()   { return this.pressed['KeyJ'] || this.pressed['KeyX'] || this.mousePressed; },
-  dashP()  { return this.pressed['ShiftLeft'] || this.pressed['ShiftRight'] || this.pressed['KeyC'] || this.pressed['KeyK']; },
-  heal()   { return this.keys['KeyF'] || this.keys['KeyH']; },
-  pauseP() { return this.pressed['KeyP'] || this.pressed['Escape']; },
+  left()   { return this.keys['KeyA'] || this.keys['ArrowLeft']  || this.vheld.left; },
+  right()  { return this.keys['KeyD'] || this.keys['ArrowRight'] || this.vheld.right; },
+  up()     { return this.keys['KeyW'] || this.keys['ArrowUp']    || this.vheld.up; },
+  down()   { return this.keys['KeyS'] || this.keys['ArrowDown']  || this.vheld.down; },
+  jumpP()  { return this.pressed['Space'] || this.pressed['KeyZ'] || this.vpressed.jump; },
+  jump()   { return this.keys['Space'] || this.keys['KeyZ'] || this.vheld.jump; },
+  atkP()   { return this.pressed['KeyJ'] || this.pressed['KeyX'] || this.mousePressed || this.vpressed.atk; },
+  dashP()  { return this.pressed['ShiftLeft'] || this.pressed['ShiftRight'] || this.pressed['KeyC'] || this.pressed['KeyK'] || this.vpressed.dash; },
+  heal()   { return this.keys['KeyF'] || this.keys['KeyH'] || this.vheld.heal; },
+  pauseP() { return this.pressed['KeyP'] || this.pressed['Escape'] || this.vpressed.pause; },
   muteP()  { return this.pressed['KeyM']; },
-  confirmP() { return this.pressed['Enter'] || this.pressed['Space']; },
+  confirmP() { return this.pressed['Enter'] || this.pressed['Space'] || this.vpressed.confirm; },
+  restartP() { return this.pressed['KeyR'] || this.vpressed.confirm; },
 };
 Input.init();
 
