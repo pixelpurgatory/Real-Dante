@@ -21,7 +21,7 @@ sb.globalThis=sb;sb.global=sb;vm.createContext(sb);
 const files=['core.js','audio.js','level.js','background.js','actors.js','boss.js','ui.js','touch.js','main.js'];
 let b='';for(const f of files)b+='\n'+fs.readFileSync('js/'+f,'utf8');
 b+='\nglobalThis.Game=Game;globalThis.Input=Input;globalThis.TouchUI=TouchUI;globalThis.STAGE=STAGE;'
- +'globalThis.fitCanvas=fitCanvas;globalThis.canvas=canvas;globalThis.getVW=()=>VW;globalThis.VH=VH;';
+ +'globalThis.fitCanvas=fitCanvas;globalThis.canvas=canvas;globalThis.getVW=()=>VW;globalThis.VH=VH;globalThis.Vignette=Vignette;';
 vm.runInContext(b,sb);
 const {Game,Input,TouchUI,STAGE,fitCanvas,canvas}=sb;
 const VH = sb.VH;
@@ -52,9 +52,10 @@ for(const [name,w,h,wantPortrait] of devices){
   const W=canvas.width, H=canvas.height;
   const capOk = Math.max(W,H) <= 1600;
   const fills = !STAGE.portrait ? (Math.abs(STAGE.ox) <= 2 && STAGE.oy >= 0) : true;
-  // all buttons fully on-screen
+  // all buttons + the movement stick fully on-screen
   let inB=true, minY=1e9;
-  for(const btn of TouchUI.buttons){
+  const parts = TouchUI.buttons.concat([TouchUI.stick]);
+  for(const btn of parts){
     if(btn.x-btn.r < -1 || btn.x+btn.r > W+1 || btn.y-btn.r < -1 || btn.y+btn.r > H+1) inB=false;
     minY=Math.min(minY, btn.y-btn.r);
   }
@@ -70,6 +71,7 @@ for(const [name,w,h,wantPortrait] of devices){
   ok(inB, '  all buttons on-screen');
   ok(stripOk, '  portrait controls below game band');
   ok(drew, '  draw() ran without error');
+  ok(sb.Vignette.cv.width === sb.getVW(), '  vignette matches view width (no seam)');
 }
 
 console.log('--- rotation sequence (artifact / re-layout) ---');
@@ -78,15 +80,24 @@ let rotOk=true;
 for(const [w,h] of seq){
   setSize(w,h);
   try{ Game.update(1/60); Game.draw(1/60); Input.endFrame(); }catch(e){ rotOk=false; console.log('  rotate err',e.message); }
-  for(const btn of TouchUI.buttons) if(btn.x+btn.r>canvas.width+1||btn.y+btn.r>canvas.height+1) rotOk=false;
+  for(const btn of TouchUI.buttons.concat([TouchUI.stick]))
+    if(btn.x+btn.r>canvas.width+1||btn.y+btn.r>canvas.height+1||btn.x-btn.r<-1||btn.y-btn.r<-1) rotOk=false;
 }
 ok(rotOk, 'survives repeated rotation, buttons stay in bounds');
 
 console.log('--- touch mapping landscape ---');
 setSize(2532,1170);
 function btn(id){return TouchUI.buttons.find(x=>x.id===id);}
-const L=btn('left'); TouchUI.onTouch(ev([{identifier:1,clientX:L.x,clientY:L.y}]),'start');
-ok(!!Input.left(), 'landscape LEFT moves');
+function stick(){return TouchUI.stick;}
+let S=stick();
+TouchUI.onTouch(ev([{identifier:1,clientX:S.x - S.r, clientY:S.y}]),'start'); // push stick left
+ok(!!Input.left() && !Input.right(), 'landscape stick pushes LEFT');
+TouchUI.onTouch(ev([{identifier:1,clientX:S.x + S.r, clientY:S.y}]),'move');  // push right
+ok(!!Input.right() && !Input.left(), 'landscape stick pushes RIGHT');
+TouchUI.onTouch(ev([{identifier:1,clientX:S.x, clientY:S.y - S.r}]),'move');  // push up
+ok(!!Input.up(), 'landscape stick pushes UP (for up-strike)');
+TouchUI.onTouch(ev([{identifier:1,clientX:S.x, clientY:S.y}]),'move');        // center = neutral
+ok(!Input.left() && !Input.right() && !Input.up() && !Input.down(), 'stick centered = neutral (deadzone)');
 TouchUI.onTouch(ev([]),'end');
 const J=btn('jump'); TouchUI.onTouch(ev([{identifier:2,clientX:J.x,clientY:J.y}]),'start');
 ok(!!Input.jumpP(), 'landscape JUMP triggers');
@@ -94,9 +105,10 @@ TouchUI.onTouch(ev([]),'end');
 
 console.log('--- touch mapping portrait ---');
 setSize(1170,2532);
-const Lp=btn('left'); TouchUI.onTouch(ev([{identifier:3,clientX:Lp.x,clientY:Lp.y}]),'start');
-ok(!!Input.left(), 'portrait LEFT moves (control in strip)');
-ok(Lp.y > VH*STAGE.scale, 'portrait LEFT button is in the strip below the band');
+S=stick();
+ok(S.y - S.r > VH*STAGE.scale, 'portrait stick sits in the strip below the band');
+TouchUI.onTouch(ev([{identifier:3,clientX:S.x - S.r, clientY:S.y}]),'start');
+ok(!!Input.left(), 'portrait stick pushes LEFT');
 TouchUI.onTouch(ev([]),'end');
 const Ap=btn('atk'); TouchUI.onTouch(ev([{identifier:4,clientX:Ap.x,clientY:Ap.y}]),'start');
 ok(!!Input.atkP(), 'portrait HIT triggers (held -> autofire)');
