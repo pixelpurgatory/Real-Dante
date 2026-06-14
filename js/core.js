@@ -3,13 +3,15 @@
 // DANTE: The Descent — core utilities, input, constants
 // ============================================================
 
-// Internal resolution. VH (vertical gameplay extent) is fixed; VW (how wide
-// a slice of the world we show) adapts to the screen's aspect ratio so the
-// canvas fills the display with no letterbox — phones and PC alike.
-let VW = 960;                      // current view width (recomputed by fitCanvas)
-const VH = 540;                    // fixed view height
-const VW_MIN = 800, VW_MAX = 1366; // clamp range for VW
+// The game renders into a FIXED logical view (VW x VH). The physical canvas
+// fills the whole screen; STAGE describes where/how that logical view is
+// placed inside the canvas. Landscape: the view fills the canvas. Portrait:
+// the view sits in a band at the top and touch controls live below it.
+let VW = 960;                      // current logical view width
+const VH = 540;                    // logical view height (fixed)
+const VW_MIN = 760, VW_MAX = 1366; // clamp for the aspect-matched landscape width
 const VW_BAKE = VW_MAX;            // background layers are baked this wide
+const RENDER_CAP = 1600;           // max internal canvas dimension (perf budget)
 const WORLD_W = 10800;             // total world width
 const GRAV = 1500;
 const KILL_Y = 720;                // fell into the abyss
@@ -18,29 +20,83 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
+// placement of the logical view within the physical canvas (canvas pixels)
+const STAGE = { scale: 1, ox: 0, oy: 0, portrait: false, viewH: VH };
+
 // optional hook other modules register to react to a viewport change
 let resizeHook = null;
 
-// fit canvas to the viewport: pick VW from the live aspect ratio, then scale
-// to fill without distortion. Re-lays out touch controls on every change.
+// fit canvas to the viewport. Internal resolution fills the screen (capped for
+// performance); the logical VW x VH view is centered/scaled inside it.
 function fitCanvas() {
-  const ww = Math.max(1, window.innerWidth), wh = Math.max(1, window.innerHeight);
-  // aspect-matched width keeps pixels square; clamp so it can't get extreme
-  VW = Math.round(VH * ww / wh);
-  if (VW < VW_MIN) VW = VW_MIN;
-  if (VW > VW_MAX) VW = VW_MAX;
-  canvas.width = VW;
-  canvas.height = VH;
-  ctx.imageSmoothingEnabled = false; // reset — changing canvas size clears it
-  const s = Math.min(ww / VW, wh / VH);
-  canvas.style.width = Math.round(VW * s) + 'px';
-  canvas.style.height = Math.round(VH * s) + 'px';
+  const cssW = Math.max(1, window.innerWidth), cssH = Math.max(1, window.innerHeight);
+  let rw = cssW, rh = cssH;
+  const big = Math.max(rw, rh);
+  if (big > RENDER_CAP) { const k = RENDER_CAP / big; rw = Math.round(rw * k); rh = Math.round(rh * k); }
+  canvas.width = rw;
+  canvas.height = rh;
+  ctx.imageSmoothingEnabled = false; // reset — resizing the canvas clears state
+  canvas.style.width = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+
+  const portrait = cssH > cssW;
+  STAGE.portrait = portrait;
+  if (!portrait) {
+    // landscape: match the view width to the aspect ratio so it fills exactly
+    VW = Math.round(VH * rw / rh);
+    if (VW < VW_MIN) VW = VW_MIN;
+    if (VW > VW_MAX) VW = VW_MAX;
+    const scale = Math.min(rw / VW, rh / VH);
+    STAGE.scale = scale;
+    STAGE.ox = Math.round((rw - VW * scale) / 2);
+    STAGE.oy = Math.round((rh - VH * scale) / 2);
+  } else {
+    // portrait: standard landscape view in a band at the top; controls below
+    VW = 960;
+    const scale = rw / VW;             // fit to width
+    STAGE.scale = scale;
+    STAGE.ox = 0;
+    STAGE.oy = 0;
+  }
   if (resizeHook) resizeHook();
 }
 window.addEventListener('resize', fitCanvas);
 window.addEventListener('orientationchange', () => setTimeout(fitCanvas, 120));
 if (window.visualViewport) window.visualViewport.addEventListener('resize', fitCanvas);
 fitCanvas();
+
+// ---------- fullscreen + screen wake lock (best-effort, all guarded) ----------
+const Fullscreen = {
+  el() { return (typeof document !== 'undefined' && document.documentElement) || null; },
+  supported() { const e = this.el(); return !!(e && (e.requestFullscreen || e.webkitRequestFullscreen)); },
+  active() { return typeof document !== 'undefined' && !!(document.fullscreenElement || document.webkitFullscreenElement); },
+  request() {
+    if (!this.supported() || this.active()) return;
+    const e = this.el();
+    try { (e.requestFullscreen || e.webkitRequestFullscreen).call(e); } catch (err) {}
+  },
+  toggle() {
+    if (this.active()) {
+      try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (err) {}
+    } else { this.request(); }
+  },
+};
+
+const WakeLock = {
+  lock: null,
+  request() {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.wakeLock && !this.lock) {
+        navigator.wakeLock.request('screen').then(l => { this.lock = l; l.addEventListener && l.addEventListener('release', () => { this.lock = null; }); }).catch(() => {});
+      }
+    } catch (e) {}
+  },
+};
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') WakeLock.request();
+  });
+}
 
 // ---------- math helpers ----------
 const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);

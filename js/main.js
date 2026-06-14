@@ -118,9 +118,6 @@ const Game = {
     this.time += dt;
     AudioSys.update();
 
-    // on a phone held upright, wait for landscape before running the game
-    if (TouchUI.portrait()) return;
-
     if (Input.muteP()) AudioSys.toggleMute();
 
     if (this.state === 'title') {
@@ -320,7 +317,23 @@ const Game = {
   },
 
   // -------------- draw --------------
+  // Renders the full screen: clear, place the fixed game view inside the
+  // current STAGE (fills in landscape; a top band in portrait), then draw
+  // touch controls in screen space on top.
   draw(dt) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#05030a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.setTransform(STAGE.scale, 0, 0, STAGE.scale, STAGE.ox, STAGE.oy);
+    ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
+    this.drawScene(dt);
+    ctx.restore();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (TouchUI.active) TouchUI.draw();
+  },
+
+  drawScene(dt) {
     let cx = this.camX, cy = this.camY;
     if (this.shakeT > 0) {
       cx += rand(-this.shakeMag, this.shakeMag);
@@ -408,13 +421,6 @@ const Game = {
 
     if (this.state === 'victory') {
       Screens.drawVictory(this.victoryT, this.stats, this.time);
-    }
-
-    // mobile overlays, drawn on top of everything
-    if (TouchUI.portrait()) {
-      TouchUI.drawRotatePrompt();
-    } else if (TouchUI.active && this.state === 'play') {
-      TouchUI.draw();
     }
   },
 };
