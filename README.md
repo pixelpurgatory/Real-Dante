@@ -106,8 +106,9 @@ Until one is set, signups are stored locally only.
 The game logic is exercised headlessly with stubbed browser APIs:
 
 ```
-node test/sim.js            # no-crash run, boss fight, ending, restart
-node test/navbot.js --pure  # navigation bot reaches the boss (geometry is completable)
+node test/sim.js            # no-crash run, both boss fights, ending, restart
+node test/navbot.js --pure  # bot traverses village → gates → Purgatory → Death arena
 node test/mobile.js         # orientation / fullscreen-fill / touch layout
 node test/newsletter.js     # signup validation, store, in-game trigger, live POST
+node test/features.js       # buffs, pickups, ranged enemies, gore, NPCs, Death boss
 ```

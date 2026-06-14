@@ -29,7 +29,7 @@ const sb = { Math,Date,console,parseInt,parseFloat,isNaN,isFinite,Object,Array,S
   document:{ getElementById:id=> id==='game'?gameCanvas:(els[id]||mkEl(id)), createElement:()=>canvasEl(), addEventListener(){} },
   performance:{ now:()=>Date.now() }, requestAnimationFrame(){} };
 sb.globalThis=sb; sb.global=sb; vm.createContext(sb);
-const files=['core.js','audio.js','level.js','background.js','actors.js','boss.js','ui.js','touch.js','newsletter.js','main.js'];
+const files=['core.js','audio.js','level.js','background.js','actors.js','systems.js','boss.js','ui.js','touch.js','newsletter.js','main.js'];
 let b=''; for(const f of files) b+='\n'+fs.readFileSync('js/'+f,'utf8');
 b+='\nglobalThis.Game=Game;globalThis.Input=Input;globalThis.Newsletter=Newsletter;globalThis.NEWSLETTER=NEWSLETTER;';
 vm.runInContext(b,sb);

@@ -125,10 +125,11 @@ function groundAhead(ent, dir) {
 // ---------------- PLAYER (Dante) ----------------
 function makePlayer(x, y) {
   return {
-    x, y, w: 20, h: 36,
+    x, y, w: S(20), h: S(36), anchor: 'feet',
     vx: 0, vy: 0, facing: 1,
     onGround: false, groundPlat: null,
     coyote: 0, jumpBuf: 0, jumpHeld: false,
+    airJumps: 0,                 // double-jump charges remaining (from WINGS buff)
     dashT: 0, dashCd: 0, canDash: true,
     atkT: 0, atkCd: 0, atkDir: 0, atkHitDone: false, combo: 0,
     recoilT: 0,
@@ -138,8 +139,17 @@ function makePlayer(x, y) {
     dead: false, deathT: 0,
     lastSafe: { x, y }, safeT: 0,
     trail: [], stepT: 0, animT: 0,
+    buffs: {}, regenT: 0, fireT: 0,    // active buff timers + cadence clocks
 
     rect() { return this; },
+
+    addBuff(type) {
+      const info = BUFF_INFO[type];
+      this.buffs[type] = Math.max(this.buffs[type] || 0, info.dur);
+      if (type === 'doublejump') this.airJumps = Math.max(this.airJumps, 1);
+    },
+    hasBuff(type) { return (this.buffs[type] || 0) > 0; },
+    dmgMult() { return this.hasBuff('damage') ? 2 : 1; },
 
     hurt(dmg, fromX, opts = {}) {
       if (this.invuln > 0 || this.dead || Game.cinematic) return false;
@@ -191,6 +201,26 @@ function makePlayer(x, y) {
       this.invuln -= dt; this.hitstun -= dt;
       this.recoilT -= dt;
 
+      // ----- buffs (timed boons from shrine pickups) -----
+      for (const k in this.buffs) {
+        this.buffs[k] -= dt;
+        if (this.buffs[k] <= 0) delete this.buffs[k];
+      }
+      if (!this.hasBuff('doublejump')) this.airJumps = Math.min(this.airJumps, 0);
+      if (this.hasBuff('regen')) {
+        this.regenT += dt;
+        if (this.regenT >= 4 && this.hp < this.maxHp) { this.regenT = 0; this.hp++; AudioSys.sfx('heal'); Particles.burst(this.x + this.w / 2, this.y + 10, '#cfe8ff', 8, 120, { grav: -120, life: 0.6 }); }
+      } else this.regenT = 0;
+      if (this.hasBuff('fireball') && !this.dead && !Game.cinematic) {
+        this.fireT += dt;
+        if (this.fireT >= 0.85) {
+          this.fireT = 0;
+          const sx = this.x + this.w / 2 + this.facing * 16, sy = this.y + this.h * 0.45;
+          Game.shots.push(makeShot(sx, sy, this.facing * 420, 0, 'fireball', 'player', 1));
+          AudioSys.sfx('orb');
+        }
+      } else this.fireT = 0;
+
       const inControl = this.hitstun <= 0 && !Game.cinematic;
       const dashing = this.dashT > 0;
 
@@ -237,7 +267,7 @@ function makePlayer(x, y) {
 
       // ----- jump -----
       if (inControl && Input.jumpP()) this.jumpBuf = 0.12;
-      if (this.onGround) { this.coyote = 0.1; this.canDash = true; }
+      if (this.onGround) { this.coyote = 0.1; this.canDash = true; if (this.hasBuff('doublejump')) this.airJumps = 1; }
       if (this.jumpBuf > 0 && this.coyote > 0 && !dashing) {
         // drop through one-way platforms
         if (Input.down() && this.groundPlat && this.groundPlat.type === 'oneway') {
@@ -249,6 +279,14 @@ function makePlayer(x, y) {
         }
         this.jumpBuf = 0; this.coyote = 0;
         this.healing = false;
+      } else if (this.jumpBuf > 0 && !dashing && this.coyote <= 0 && !this.onGround && this.airJumps > 0) {
+        // double jump (WINGS buff)
+        this.airJumps--;
+        this.vy = -520;
+        this.jumpBuf = 0;
+        this.healing = false;
+        AudioSys.sfx('jump');
+        for (let i = 0; i < 8; i++) Particles.spawn(this.x + this.w / 2, this.y + this.h, { vx: rand(-90, 90), vy: rand(20, 90), life: 0.4, size: 3, color: '#9ad8ff', glow: true });
       }
       this.dropT = (this.dropT || 0) - dt;
       // variable jump height
@@ -298,11 +336,12 @@ function makePlayer(x, y) {
         const hb = this.attackBox();
         let hitSomething = false, blocked = false, pogo = false;
 
+        const dmg = this.dmgMult();
         // enemies
         for (const e of Game.enemies) {
           if (e.dead || e.noHit) continue;
           if (rectsOverlap(hb, e.rect())) {
-            const res = e.takeHit(1, this.facing, this.atkDir);
+            const res = e.takeHit(dmg, this.facing, this.atkDir);
             if (res === 'blocked') { blocked = true; continue; }
             if (res) {
               hitSomething = true;
@@ -312,10 +351,18 @@ function makePlayer(x, y) {
             }
           }
         }
+        // neutral NPCs (killable)
+        for (const n of Game.npcs) {
+          if (!n.dead && rectsOverlap(hb, n.rect())) { n.takeHit(dmg, this.facing); hitSomething = true; }
+        }
+        // falling sinners
+        for (const sn of Game.sinners) {
+          if (!sn.dead && rectsOverlap(hb, sn.rect())) { sn.takeHit(dmg, this.facing); hitSomething = true; this.gainSoul(6); }
+        }
         // boss
         if (Game.boss && !Game.boss.dead && Game.boss.active) {
           if (rectsOverlap(hb, Game.boss.rect())) {
-            if (Game.boss.takeHit(1, this.facing, this.atkDir)) {
+            if (Game.boss.takeHit(dmg, this.facing, this.atkDir)) {
               hitSomething = true;
               this.gainSoul(14);
               Particles.burst(hb.x + hb.w / 2, hb.y + hb.h / 2, '#fff1c8', 8, 240, { life: 0.3 });
@@ -439,6 +486,15 @@ function makePlayer(x, y) {
       const cloakD = ghost ? '#5a3044' : '#5c1a2a';
       const skin = '#f0e2d0';
 
+      // 2H greatsword slung on the back when not swinging (always visible)
+      if (this.atkT <= 0) {
+        g.save();
+        g.translate(-6, -24 + bob);
+        g.rotate(-0.95);
+        this.drawGreatsword(g, ghost);
+        g.restore();
+      }
+
       // legs
       g.fillStyle = '#241826';
       if (run) {
@@ -493,20 +549,44 @@ function makePlayer(x, y) {
       g.fillRect(-2, -42 + bob, 8, 2);
       g.fillRect(-4, -41 + bob, 3, 2);
 
-      // arm + sword (idle hint; the slash arc is an fx)
+      // arm
+      g.fillStyle = cloakD;
+      g.fillRect(2, -27 + bob, 6, 4);
+      // 2H greatsword mid-swing, oriented by attack direction
       if (this.atkT > 0) {
-        g.strokeStyle = '#d8d8e8';
-        g.lineWidth = 2.5;
-        g.beginPath();
-        if (this.atkDir === 1) { g.moveTo(2, -30 + bob); g.lineTo(8, -52 + bob); }
-        else if (this.atkDir === 2) { g.moveTo(2, -18); g.lineTo(8, 4); }
-        else { g.moveTo(2, -26 + bob); g.lineTo(20, -28 + bob); }
-        g.stroke();
-      } else {
-        g.fillStyle = cloakD;
-        g.fillRect(2, -27 + bob, 6, 4);
+        const p = clamp(1 - this.atkT / 0.20, 0, 1);
+        g.save();
+        if (this.atkDir === 1) {            // up-strike
+          g.translate(3, -34 + bob); g.rotate(lerp(0.5, -0.15, p));
+        } else if (this.atkDir === 2) {     // down-strike
+          g.translate(3, -16); g.rotate(lerp(Math.PI * 0.7, Math.PI, p));
+        } else {                            // forward chop (overhead → forward)
+          g.translate(3, -30 + bob); g.rotate(lerp(-2.3, 0.25, p));
+        }
+        this.drawGreatsword(g, ghost);
+        g.restore();
       }
       g.restore();
+    },
+
+    // a massive Berserk-style iron slab; handle at the origin, blade along -y
+    drawGreatsword(g, ghost) {
+      g.fillStyle = ghost ? '#3a2c34' : '#241c14';
+      g.fillRect(-2.5, 0, 5, 13);                 // grip
+      g.fillStyle = '#1a140e';
+      g.fillRect(-2.5, 6, 5, 3);                  // grip wrap
+      g.fillStyle = ghost ? '#8a7a4a' : '#caa84a';
+      g.fillRect(-7, -2, 14, 4);                  // crossguard
+      const steel = ghost ? '#7a8290' : '#9aa0aa';
+      const edge = ghost ? '#a8b0bc' : '#cdd2d8';
+      g.fillStyle = steel;
+      g.beginPath();
+      g.moveTo(-6, -2); g.lineTo(6, -2); g.lineTo(5, -46); g.lineTo(0, -54); g.lineTo(-5, -46);
+      g.closePath(); g.fill();
+      g.fillStyle = edge;                          // central fuller highlight
+      g.fillRect(-1.4, -50, 2.8, 48);
+      g.fillStyle = ghost ? '#566' : '#697079';    // forged notches
+      for (let i = 0; i < 3; i++) g.fillRect(-5, -14 - i * 12, 10, 2);
     },
   };
 }
@@ -520,9 +600,15 @@ function spawnEnemy(spec) {
     case 'hound': return makeHound(spec, false);
     case 'wraith': return makeHound(spec, true);
     case 'weeper': return makeWeeper(spec);
+    case 'bowman': return makeBowman(spec);
+    case 'soul': return makeSoul(spec);
   }
   return null;
 }
+
+// overall actor scale (player + enemies a little bigger)
+const ASCALE = 1.18;
+const S = n => Math.round(n * ASCALE);
 
 function baseEnemy(spec, w, h) {
   return {
@@ -532,6 +618,7 @@ function baseEnemy(spec, w, h) {
     w, h, vx: 0, vy: 0,
     hp: 1, maxHp: 1, touchDmg: 1,
     facing: -1, flash: 0, dead: false,
+    gore: 'blood',
     state: 'idle', t: 0, animT: rand(0, 9),
     home: { x: spec.x, y: spec.gy !== undefined ? spec.gy - h : spec.y },
     min: spec.min, max: spec.max,
@@ -540,6 +627,7 @@ function baseEnemy(spec, w, h) {
       this.hp -= dmg;
       this.flash = 0.12;
       this.aggro = true;
+      Gore.hit(this.x + this.w / 2, this.y + this.h / 2, dir, this.gore, dmg > 1);
       if (this.knockable) this.vx += dir * 160;
       if (this.hp <= 0) this.die();
       return true;
@@ -548,7 +636,7 @@ function baseEnemy(spec, w, h) {
       this.dead = true;
       if (typeof Game !== 'undefined') Game.stats.kills++;
       AudioSys.sfx('edie');
-      Particles.burst(this.x + this.w / 2, this.y + this.h / 2, this.deathColor || '#cfc8ee', 16, 240, { life: 0.6 });
+      Gore.death(this);
       Particles.soulTo(this.x + this.w / 2, this.y + this.h / 2, 5);
     },
   };
@@ -560,6 +648,8 @@ function makeShade(spec) {
   e.hp = e.maxHp = 2;
   e.knockable = true;
   e.deathColor = '#9a8cd8';
+  e.gore = 'soul';
+  e.anchor = 'center';
   e.hover = spec.hover;
   e.update = function (dt, pl) {
     this.animT += dt; this.flash -= dt; this.t += dt;
@@ -624,6 +714,8 @@ function makeHarpy(spec) {
   const e = baseEnemy(spec, 34, 26);
   e.hp = e.maxHp = 3;
   e.deathColor = '#d8b08a';
+  e.gore = 'blood';
+  e.anchor = 'center';
   e.baseY = spec.y;
   e.dir = 1;
   e.cd = 0;
@@ -738,6 +830,7 @@ function makeHoplite(spec) {
   const e = baseEnemy(spec, 26, 44);
   e.hp = e.maxHp = 4;
   e.deathColor = '#d8d2b8';
+  e.gore = 'bone';
   e.dir = -1;
   e.thrustBox = null;
   e.takeHit = function (dmg, dir, atkDir) {
@@ -752,6 +845,7 @@ function makeHoplite(spec) {
     this.hp -= dmg;
     this.flash = 0.12;
     this.aggro = true;
+    Gore.hit(this.x + this.w / 2, this.y + this.h / 2, dir, 'bone', dmg > 1);
     if (this.hp <= 0) this.die();
     return true;
   };
@@ -873,6 +967,7 @@ function makeHound(spec, isWraith) {
   e.knockable = true;
   e.isWraith = isWraith;
   e.deathColor = isWraith ? '#cfd8e2' : '#c86a3a';
+  e.gore = isWraith ? 'soul' : 'blood';
   e.cd = 0;
   e.alpha = 1;
   e.update = function (dt, pl) {
@@ -1002,11 +1097,139 @@ function makeHound(spec, isWraith) {
   return e;
 }
 
+// --- Bowman: skeleton archer (ranged) ---
+function makeBowman(spec) {
+  const e = baseEnemy(spec, 26, 44);
+  e.hp = e.maxHp = 3;
+  e.gore = 'bone';
+  e.deathColor = '#d8d2b8';
+  e.dir = -1; e.cd = rand(0.6, 1.6);
+  e.update = function (dt, pl) {
+    this.animT += dt; this.flash -= dt; this.t += dt; this.cd -= dt;
+    const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+    const px = pl.x + pl.w / 2, py = pl.y + pl.h / 2;
+    const sameLevel = Math.abs((pl.y + pl.h) - (this.y + this.h)) < 90;
+    const inRange = Math.abs(px - cx) < 460 && sameLevel;
+    switch (this.state) {
+      case 'idle':
+      case 'walk': {
+        this.state = 'walk';
+        this.facing = this.dir;
+        this.vx = this.dir * 34;
+        if (this.x < this.min) this.dir = 1;
+        if (this.x + this.w > this.max) this.dir = -1;
+        if (!groundAhead(this, this.dir) && this.onGround) this.dir = -this.dir;
+        if (inRange && this.cd <= 0) { this.state = 'aim'; this.t = 0; this.vx = 0; this.facing = px > cx ? 1 : -1; AudioSys.sfx('focus'); }
+        break;
+      }
+      case 'aim': {
+        this.vx = 0;
+        this.facing = px > cx ? 1 : -1;
+        if (this.t > 0.55) {
+          this.state = 'walk'; this.cd = rand(1.6, 2.6);
+          const dir = this.facing;
+          const sx = this.x + this.w / 2 + dir * 16, sy = this.y + 16;
+          const dx = px - sx, dy = (py - sy) - 30;
+          const d = Math.hypot(dx, dy) || 1;
+          const sp = 340;
+          Game.shots.push(makeShot(sx, sy, dx / d * sp, dy / d * sp, 'arrow', 'enemy', 1));
+          AudioSys.sfx('thrust');
+        }
+        break;
+      }
+    }
+    this.vy += GRAV * dt; if (this.vy > 700) this.vy = 700;
+    moveAndCollide(this, dt);
+  };
+  e.draw = function (camX, camY, time) {
+    const g = ctx, sx = this.x + this.w / 2 - camX, sy = this.y + this.h - camY;
+    g.save(); g.translate(sx, sy); g.scale(this.facing, 1);
+    const bone = this.flash > 0 ? '#fff' : '#cfc8ae';
+    const dark = this.flash > 0 ? '#fff' : '#5c5644';
+    const walk = this.state === 'walk' ? Math.sin(time * 7) : 0;
+    // legs + ribs
+    g.strokeStyle = bone; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(-3, -16); g.lineTo(-5 + walk * 3, 0); g.stroke();
+    g.beginPath(); g.moveTo(3, -16); g.lineTo(5 - walk * 3, 0); g.stroke();
+    g.lineWidth = 2; g.beginPath(); g.moveTo(0, -16); g.lineTo(0, -32); g.stroke();
+    for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-5, -20 - i * 4); g.lineTo(5, -20 - i * 4); g.stroke(); }
+    // skull
+    g.fillStyle = bone; g.beginPath(); g.arc(1, -37, 6, 0, 7); g.fill();
+    g.fillStyle = '#3a3020'; g.fillRect(3, -39, 2.5, 3);
+    // bow
+    const draw = this.state === 'aim' ? Math.min(this.t / 0.55, 1) : 0.1;
+    g.strokeStyle = dark; g.lineWidth = 2.5;
+    g.beginPath(); g.arc(16, -26, 14, -1.1, 1.1); g.stroke();
+    g.strokeStyle = '#e8e0c8'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(16 + Math.cos(-1.1) * 14, -26 + Math.sin(-1.1) * 14);
+    g.lineTo(16 - draw * 12, -26); g.lineTo(16 + Math.cos(1.1) * 14, -26 + Math.sin(1.1) * 14); g.stroke();
+    if (this.state === 'aim') { g.strokeStyle = bone; g.beginPath(); g.moveTo(16 - draw * 12, -26); g.lineTo(28, -26); g.stroke(); }
+    g.restore();
+  };
+  return e;
+}
+
+// --- Soul: flying tormented soul (Purgatory), fires slow soul-bolts ---
+function makeSoul(spec) {
+  const e = baseEnemy(spec, 30, 30);
+  e.hp = e.maxHp = 3;
+  e.gore = 'soul';
+  e.anchor = 'center';
+  e.deathColor = '#bfe0ff';
+  e.baseY = spec.y; e.cd = rand(1.0, 2.4); e.dir = 1;
+  e.update = function (dt, pl) {
+    this.animT += dt; this.flash -= dt; this.t += dt; this.cd -= dt;
+    const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+    const px = pl.x + pl.w / 2, py = pl.y + pl.h / 2;
+    // slow horizontal drift within bounds + gentle vertical bob toward player height
+    this.x += this.dir * 46 * dt;
+    if (this.x < this.min) this.dir = 1;
+    if (this.x + this.w > this.max) this.dir = -1;
+    const targetY = clamp(py - 60, 150, 360);
+    this.y += (targetY + Math.sin(this.t * 1.6) * 16 - this.y) * dt * 1.2;
+    this.facing = px > cx ? 1 : -1;
+    if (dist2(cx, cy, px, py) < 520 * 520 && this.cd <= 0) {
+      this.cd = rand(2.0, 3.2);
+      const dx = px - cx, dy = py - cy, d = Math.hypot(dx, dy) || 1, sp = 165;
+      Game.shots.push(makeShot(cx, cy, dx / d * sp, dy / d * sp, 'soulbolt', 'enemy', 1));
+      AudioSys.sfx('orb');
+    }
+  };
+  e.draw = function (camX, camY, time) {
+    const g = ctx, sx = this.x + this.w / 2 - camX, sy = this.y + this.h / 2 - camY;
+    g.save(); g.translate(sx, sy);
+    const a = this.flash > 0 ? 1 : 0.85;
+    g.globalAlpha = a;
+    const body = this.flash > 0 ? '#fff' : '#8aa6c8';
+    // glow
+    g.globalAlpha = a * 0.3; g.fillStyle = '#bfe0ff';
+    g.beginPath(); g.arc(0, 0, 22, 0, 7); g.fill();
+    g.globalAlpha = a;
+    // anguished wispy face/body
+    g.fillStyle = body;
+    g.beginPath();
+    g.arc(0, -4, 11, Math.PI, 0);
+    const wob = Math.sin(time * 5 + this.animT) * 4;
+    g.quadraticCurveTo(12, 10, 5 + wob, 16);
+    g.quadraticCurveTo(0, 9, -2 - wob, 16);
+    g.quadraticCurveTo(-8, 11, -11, -4);
+    g.closePath(); g.fill();
+    // hollow mouth/eyes (torment)
+    g.fillStyle = '#1a2a3e';
+    g.fillRect(-5, -7, 3, 4); g.fillRect(3, -7, 3, 4);
+    g.beginPath(); g.ellipse(0, 2, 2.5, 4, 0, 0, 7); g.fill();
+    g.globalAlpha = 1; g.restore();
+  };
+  return e;
+}
+
 // --- Weeper: floating mourner, fires homing tear-orbs ---
 function makeWeeper(spec) {
   const e = baseEnemy(spec, 26, 38);
   e.hp = e.maxHp = 2;
   e.deathColor = '#cfe0f0';
+  e.gore = 'soul';
+  e.anchor = 'center';
   e.cd = rand(1.0, 2.0);
   e.myOrbs = 0;
   e.update = function (dt, pl) {

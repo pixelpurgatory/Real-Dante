@@ -211,11 +211,11 @@ const HUD = {
     ctx.font = '11px Georgia';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#d8b8a8';
-    ctx.fillText('ASTERION, THE INFERNAL BULL', VW / 2, y - 9);
+    ctx.fillText(boss.barName || 'BOSS', VW / 2, y - 9);
     ctx.textAlign = 'left';
     // name banner on intro
     if (boss.nameT > 0) {
-      const a = clamp(Math.min(boss.nameT, 3.2 - boss.nameT) * 1.4, 0, 1);
+      const a = clamp(Math.min(boss.nameT, 3.4 - boss.nameT) * 1.4, 0, 1);
       ctx.save();
       ctx.globalAlpha = a;
       ctx.font = '34px Georgia';
@@ -223,11 +223,35 @@ const HUD = {
       ctx.fillStyle = '#f4d8c0';
       ctx.shadowColor = '#ff5020';
       ctx.shadowBlur = 16;
-      ctx.fillText('A S T E R I O N', VW / 2, 150);
+      ctx.fillText(boss.title || '', VW / 2, 150);
       ctx.font = 'italic 15px Georgia';
-      ctx.fillText('Warden of the Gate, the Bull of Crete', VW / 2, 176);
+      ctx.fillText(boss.subtitle || '', VW / 2, 176);
       ctx.restore();
       ctx.textAlign = 'left';
+    }
+  },
+
+  // active buff icons + remaining time (top-left under the masks)
+  drawBuffs(pl, time) {
+    if (!pl.buffs) return;
+    const keys = Object.keys(pl.buffs);
+    let i = 0;
+    for (const k of keys) {
+      const info = BUFF_INFO[k];
+      if (!info) continue;
+      const x = 22 + i * 92, y = 64;
+      const tleft = pl.buffs[k];
+      ctx.globalAlpha = tleft < 5 && Math.floor(time * 6) % 2 === 0 ? 0.4 : 1; // blink when expiring
+      ctx.fillStyle = 'rgba(12,8,20,0.7)';
+      ctx.fillRect(x - 2, y - 11, 88, 18);
+      ctx.fillStyle = info.col;
+      ctx.fillRect(x, y - 9, 6, 14);
+      ctx.font = '11px Georgia';
+      ctx.fillStyle = '#e8e0f4';
+      ctx.textAlign = 'left';
+      ctx.fillText(info.label + ' ' + Math.ceil(tleft) + 's', x + 11, y + 2);
+      ctx.globalAlpha = 1;
+      i++;
     }
   },
 };

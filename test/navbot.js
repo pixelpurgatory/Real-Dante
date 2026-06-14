@@ -17,11 +17,12 @@ const sb={Math,Date,console,parseInt,parseFloat,isNaN,isFinite,Object,Array,Stri
   document:{getElementById:id=>id==='game'?cv:canvas(),createElement:()=>canvas(),addEventListener(){}},
   performance:{now:()=>Date.now()},requestAnimationFrame(){}};
 sb.globalThis=sb;sb.global=sb;vm.createContext(sb);
-const files=['core.js','audio.js','level.js','background.js','actors.js','boss.js','ui.js','touch.js','newsletter.js','main.js'];
+const files=['core.js','audio.js','level.js','background.js','actors.js','systems.js','boss.js','ui.js','touch.js','newsletter.js','main.js'];
 let b='';for(const f of files)b+='\n'+fs.readFileSync('js/'+f,'utf8');
-b+='\nglobalThis.Game=Game;globalThis.Input=Input;globalThis.PLATFORMS=PLATFORMS;globalThis.HAZARDS=HAZARDS;';
+b+='\nglobalThis.Game=Game;globalThis.Input=Input;globalThis.PLATFORMS=PLATFORMS;globalThis.HAZARDS=HAZARDS;globalThis.DEATH_ARENA_L=DEATH_ARENA_L;';
 vm.runInContext(b,sb,{filename:'bundle.js'});
 const {Game,Input,PLATFORMS,HAZARDS}=sb;
+const DEATH_L=sb.DEATH_ARENA_L;
 
 const STEP=1/60;
 function press(c){Input.pressed[c]=true;}
@@ -30,7 +31,7 @@ function press(c){Input.pressed[c]=true;}
 function groundTopAt(x, yRef){
   let best=Infinity;
   for(const p of PLATFORMS){
-    if(p.x<-50||p.x>11000)continue;
+    if(p.x<-50||p.x>17000)continue;
     if(x>=p.x&&x<=p.x+p.w){
       if(p.y>=yRef-40 && p.y<best) best=p.y;
     }
@@ -46,7 +47,7 @@ press('Enter');Game.update(STEP);Input.endFrame();
 const PURE = process.argv.includes('--pure');
 if(PURE) Game.enemies=[]; // isolate geometry reachability
 
-let stuckX=0,stuckFrames=0,maxX=0,reachedBoss=false,jumps=0;
+let stuckX=0,stuckFrames=0,maxX=0,reachedBoss=false,reachedDeath=false,jumps=0;
 const MAXF=20000;
 let f=0;
 for(;f<MAXF;f++){
@@ -57,8 +58,8 @@ for(;f<MAXF;f++){
     console.log('  T x',Math.round(pl.x),'y',Math.round(pl.y),'vy',Math.round(pl.vy),'onG',pl.onGround);
 
   const footY=pl.y+pl.h;
-  // commit a jump ~30px before the ledge while still grounded
-  const probe=pl.x+pl.w+30;
+  // commit a jump just before the ledge while still grounded
+  const probe=pl.x+pl.w+20;
   const gProbe=groundTopAt(probe, footY);
   const gNext=groundTopAt(pl.x+pl.w+80, footY);
   const hzAhead=hazardAt(probe);
@@ -77,7 +78,7 @@ for(;f<MAXF;f++){
 
   // attack anything in front sometimes (skip in pure-traversal mode)
   if(!PURE && f%10===0) press('KeyJ');
-  if(PURE) Game.enemies=[];
+  if(PURE){ Game.enemies=[]; Game.sinners=[]; Game.shots=[]; }
   // pogo if above spikes and falling
   if(!pl.onGround && pl.vy>0 && hazardAt(pl.x+pl.w/2)==='spikes'){ Input.keys.KeyS=true; press('KeyJ'); }
 
@@ -85,10 +86,21 @@ for(;f<MAXF;f++){
 
   if(pl.x>maxX+1){maxX=pl.x;stuckFrames=0;}else{stuckFrames++;}
   if(Game.boss&&Game.boss.active)reachedBoss=true;
-  if(reachedBoss) break; // stop at boss; combat tested separately
+  if(PURE){
+    // bypass the gates boss + the precision-limbo isles, then test the NEW
+    // Purgatory climb specifically (warp to its entrance once)
+    if(Game.boss && Game.boss.active && !Game.bossDefeated){
+      Game.bossDefeated=true; Game.boss.dead=true; Game.boss.finished=true; Game.boss.active=false;
+      Game.arenaWalls=[]; Game.deathDefeated=true; // stop the sinner rain for a clean geometry test
+      pl.x=10820; pl.y=400; pl.vx=0; pl.vy=0;
+      pl.lastSafe={x:10820,y:400}; maxX=10820; stuckFrames=0;
+    }
+    if(pl.x>DEATH_L){ reachedDeath=true; break; }
+  } else if(reachedBoss){ break; }
   if(stuckFrames>600){ break; } // stuck 10s
 }
 console.log('navbot: frames',f,'maxX',Math.round(maxX),'reachedBoss',reachedBoss,
+  'reachedDeathArena',(typeof reachedDeath!=='undefined'&&reachedDeath),
   'deaths',Game.stats.deaths,'jumps',jumps,'stuckFrames',stuckFrames);
 // report what's near the stuck point
 if(!reachedBoss){

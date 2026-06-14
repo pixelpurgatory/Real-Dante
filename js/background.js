@@ -71,11 +71,52 @@ const BG = {
     // --- gates: colossal black wall with horned gate
     this.hellWall(g, 0.25 * 6500 + 480, 478);
 
-    // --- limbo: endless pale arcade
-    for (let i = 0; i < 16; i++) {
+    // --- limbo: pale arcade
+    for (let i = 0; i < 10; i++) {
       const bx = 0.25 * (8200 + i * 260) + 480;
       this.paleArch(g, bx, 470, 46, 130 + (i % 3) * 24, '#4a525e');
     }
+
+    // --- purgatory: drowned Mountain of the Seven Circles + golden light
+    const tx = 0.25 * 13700 + 480;
+    const pg = g.createRadialGradient(tx, 150, 20, tx, 150, 380);
+    pg.addColorStop(0, 'rgba(255,214,128,0.55)');
+    pg.addColorStop(1, 'rgba(255,214,128,0)');
+    g.fillStyle = pg;
+    g.fillRect(tx - 380, 0, 760, 470);
+    for (let i = 0; i < 6; i++) {
+      const bx = 0.25 * (11000 + i * 900) + 480;
+      this.mountain(g, bx, 478, 120 + (i % 3) * 34, 90 + (i * 47) % 130, mixColor('#6a5a52', '#46383e', i / 6));
+    }
+    this.circlesTower(g, tx, 478);
+  },
+
+  // the seven-cornice mountain-tower of Purgatory (distant, in the sky)
+  circlesTower(g, cx, gy) {
+    const tiers = 7, baseW = 320, totalH = 340, h = totalH / tiers;
+    for (let i = 0; i < tiers; i++) {
+      const t = i / tiers;
+      const w = baseW * (1 - t * 0.8);
+      const y = gy - i * h;
+      g.fillStyle = mixColor('#5e4e46', '#382c2a', t);
+      g.fillRect(cx - w / 2, y - h, w, h);
+      g.fillStyle = 'rgba(255,222,150,0.12)';
+      g.fillRect(cx - w / 2, y - h, w, 3);
+      g.fillStyle = 'rgba(0,0,0,0.28)';
+      g.fillRect(cx - 4, y - h + 4, 8, h - 7);                    // gate slit
+      // thin waterfalls down the face
+      g.fillStyle = 'rgba(220,230,238,0.18)';
+      for (let k = -1; k <= 1; k++) g.fillRect(cx + k * w * 0.3, y - h, 2, h);
+    }
+    // fiery summit (like the painting)
+    const sy = gy - totalH;
+    const fg = g.createRadialGradient(cx, sy, 4, cx, sy, 50);
+    fg.addColorStop(0, 'rgba(255,170,70,0.95)');
+    fg.addColorStop(1, 'rgba(255,80,30,0)');
+    g.fillStyle = fg;
+    g.fillRect(cx - 50, sy - 50, 100, 100);
+    g.fillStyle = '#ffcf78';
+    g.beginPath(); g.moveTo(cx - 9, sy); g.quadraticCurveTo(cx, sy - 26, cx + 9, sy); g.closePath(); g.fill();
   },
 
   silTown(g, x, gy, c) {
@@ -659,7 +700,8 @@ const BG = {
     if (x < 2660) return 'village';
     if (x < 5700) return 'descent';
     if (x < 7900) return 'gates';
-    return 'limbo';
+    if (x < 10700) return 'limbo';
+    return 'purgatory';
   },
 
   // ----------------------------------------------------------
@@ -849,6 +891,9 @@ const BG = {
     // mid layer
     ctx.drawImage(this.mid, clamp(camX * this.MID_P, 0, this.mid.width - VW), 0, VW, VH, 0, 0, VW, VH);
 
+    // purgatory atmosphere: light shafts, drifting souls, falling sinners
+    if (camX + VW / 2 > 10700) this.drawPurgatoryAmbient(camX, time);
+
     // water behind deco
     this.drawWater(camX, time);
 
@@ -860,5 +905,52 @@ const BG = {
     this.updateMotes(dt, camX, pal);
     this.drawMotes(camX, pal, time);
     return pal;
+  },
+
+  // distant souls and damned raining from the golden sky (pure atmosphere)
+  drawPurgatoryAmbient(camX, time) {
+    const g = ctx;
+    // god-rays from the upper sky
+    g.save();
+    g.globalAlpha = 0.10;
+    g.fillStyle = '#ffe6a8';
+    for (let i = 0; i < 4; i++) {
+      const bx = ((i * 320 - camX * 0.2) % (VW + 400) + VW + 400) % (VW + 400) - 200;
+      g.beginPath();
+      g.moveTo(bx, 0); g.lineTo(bx + 60, 0); g.lineTo(bx + 160, VH); g.lineTo(bx + 40, VH);
+      g.closePath(); g.fill();
+    }
+    g.restore();
+    // flying tormented souls (far parallax silhouettes)
+    g.save();
+    const P = 0.4;
+    for (let i = 0; i < 14; i++) {
+      const seed = i * 97.3;
+      let x = ((seed * 53 - camX * P) % (VW + 200) + VW + 200) % (VW + 200) - 100;
+      const y = 60 + (i * 71) % 220 + Math.sin(time * 0.8 + seed) * 18;
+      g.globalAlpha = 0.28;
+      g.fillStyle = '#caa890';
+      const flap = Math.sin(time * 4 + seed) * 6;
+      g.beginPath();
+      g.ellipse(x, y, 5, 8, 0, 0, 7); g.fill();
+      g.strokeStyle = '#caa890'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(x - 4, y - 2); g.lineTo(x - 12, y - 6 - flap); g.stroke();
+      g.beginPath(); g.moveTo(x + 4, y - 2); g.lineTo(x + 12, y - 6 + flap); g.stroke();
+    }
+    // damned souls falling from the sky (slow streaks)
+    for (let i = 0; i < 10; i++) {
+      const seed = i * 131.7;
+      const fall = (time * (40 + (i % 5) * 16) + seed * 9) % (VH + 160);
+      let x = ((seed * 37 - camX * 0.5) % (VW + 160) + VW + 160) % (VW + 160) - 80;
+      const y = fall - 80;
+      g.globalAlpha = 0.22;
+      g.fillStyle = '#8a6a5e';
+      g.save(); g.translate(x, y); g.rotate(Math.sin(seed) * 1.5 + time);
+      g.beginPath(); g.ellipse(0, 0, 4, 7, 0, 0, 7); g.fill();
+      g.beginPath(); g.arc(0, -7, 3, 0, 7); g.fill();
+      g.restore();
+    }
+    g.restore();
+    g.globalAlpha = 1;
   },
 };

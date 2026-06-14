@@ -65,10 +65,10 @@ vm.createContext(sandbox);
 // load files in index.html order. Concatenate so top-level `const`s share
 // one lexical scope (as separate <script> tags do in a browser), then export
 // the globals we need for driving the sim.
-const files = ['core.js','audio.js','level.js','background.js','actors.js','boss.js','ui.js','touch.js','newsletter.js','main.js'];
+const files = ['core.js','audio.js','level.js','background.js','actors.js','systems.js','boss.js','ui.js','touch.js','newsletter.js','main.js'];
 let bundle = '';
 for (const f of files) bundle += '\n//=== ' + f + ' ===\n' + fs.readFileSync('js/' + f, 'utf8');
-bundle += '\n;globalThis.Game=Game;globalThis.Input=Input;globalThis.Particles=Particles;globalThis.FINAL_SCENE_X=FINAL_SCENE_X;';
+bundle += '\n;globalThis.Game=Game;globalThis.Input=Input;globalThis.Particles=Particles;globalThis.FINAL_SCENE_X=FINAL_SCENE_X;globalThis.DEATH_ARENA_L=DEATH_ARENA_L;globalThis.DEATH_ARENA_R=DEATH_ARENA_R;';
 try {
   vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
 } catch (e) {
@@ -127,41 +127,56 @@ try {
     'deaths', Game.stats.deaths, 'state', Game.state);
   console.log('enemies alive', Game.enemies.filter(e=>!e.dead).length, 'particles', sandbox.Particles.list.length);
 
-  // ---- scripted BOSS fight (bot can't platform there) ----
+  // ---- scripted GATES BOSS (Asterion) ----
   Game.state = 'title'; press('Enter'); step(2);
-  Game.player.x = 6940; Game.player.y = 400;
-  Game.player.hp = 5; Game.player.dead = false;
+  Input.keys = {};
+  Game.player.x = 6940; Game.player.y = 400; Game.player.hp = 5; Game.player.dead = false;
   step(20);
-  console.log('boss state after entering arena:', Game.boss.state, 'active', Game.boss.active);
-  if (!Game.boss.active) errors.push('BOSS did not activate on arena entry');
-  // run the boss through many frames, force-dealing damage like a player would
-  let bossPhase2 = false, bossDied = false;
+  console.log('gates boss:', Game.boss.state, 'active', Game.boss.active);
+  if (!Game.boss.active) errors.push('GATES BOSS did not activate on arena entry');
+  let bossPhase2 = false;
   for (let i = 0; i < 4000 && !Game.bossDefeated; i++) {
-    // keep player alive & near center
     if (Game.player.dead) { Game.player.dead = false; Game.player.hp = 5; Game.player.x = 7100; Game.player.y = 400; }
-    Game.player.invuln = 1; // god-mode tester
+    Game.player.invuln = 1;
     if (i % 8 === 0 && Game.boss.active && !Game.boss.dead) Game.boss.takeHit(1, 1, 0);
     if (Game.boss.phase2) bossPhase2 = true;
     Game.update(STEP); Game.draw(STEP); Input.endFrame();
   }
-  bossDied = Game.bossDefeated;
-  console.log('boss phase2 reached', bossPhase2, 'boss defeated', bossDied, 'boss.finished', Game.boss.finished);
-  if (!bossDied) errors.push('BOSS never died under sustained damage');
+  console.log('gates boss phase2', bossPhase2, 'defeated', Game.bossDefeated, 'finished', Game.boss.finished);
+  if (!Game.bossDefeated) errors.push('GATES BOSS never died under sustained damage');
+
+  // ---- scripted DEATH BOSS (Purgatory) ----
+  Input.keys = {};
+  const dmid = (sandbox.DEATH_ARENA_L + sandbox.DEATH_ARENA_R) / 2;
+  Game.player.x = dmid; Game.player.y = 400; Game.player.hp = 5; Game.player.dead = false;
+  step(24);
+  console.log('death boss:', Game.deathBoss.state, 'active', Game.deathBoss.active);
+  if (!Game.deathBoss.active) errors.push('DEATH BOSS did not activate on arena entry');
+  let dPhase2 = false;
+  for (let i = 0; i < 6000 && !Game.deathDefeated; i++) {
+    if (Game.player.dead) { Game.player.dead = false; Game.player.hp = 5; Game.player.x = dmid; Game.player.y = 400; }
+    Game.player.invuln = 1;
+    if (i % 8 === 0 && Game.deathBoss.active && !Game.deathBoss.dead) Game.deathBoss.takeHit(1, 1);
+    if (Game.deathBoss.phase2) dPhase2 = true;
+    Game.update(STEP); Game.draw(STEP); Input.endFrame();
+  }
+  console.log('death boss phase2', dPhase2, 'defeated', Game.deathDefeated, 'finished', Game.deathBoss.finished);
+  if (!Game.deathDefeated) errors.push('DEATH BOSS never died under sustained damage');
 
   // ---- scripted ENDING ----
-  sandbox.Game.beatrice && (sandbox.Game.beatrice.idx = 3); // place her at final spot
-  Game.enemies = []; // isolate ending logic from the wraith nest
+  Game.enemies = []; Game.sinners = [];
+  sandbox.Game.beatrice && (sandbox.Game.beatrice.idx = 5);
   Game.player.x = sandbox.FINAL_SCENE_X + 20; Game.player.y = 410;
   Game.player.dead = false; Game.player.hp = 5;
   Game.player.lastSafe = { x: Game.player.x, y: Game.player.y };
   let endReached = false, endStarted = false;
-  for (let i = 0; i < 4000; i++) {
+  for (let i = 0; i < 5000; i++) {
     if (Game.endStarted) endStarted = true;
     Game.update(STEP); Game.draw(STEP); Input.endFrame();
     if (Game.state === 'victory') { endReached = true; break; }
   }
   console.log('ending startEnding fired:', endStarted, 'reached victory:', endReached, 'state', Game.state);
-  if (!endReached) errors.push('ENDING never triggered victory after boss + final zone');
+  if (!endReached) errors.push('ENDING never triggered victory after both bosses + final zone');
 
   // ---- restart from victory ----
   if (Game.state === 'victory') {

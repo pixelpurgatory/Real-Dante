@@ -10,11 +10,15 @@ function makeMinotaur() {
   return {
     x: 7560, y: ARENA_FLOOR - 92, w: 64, h: 92,
     vx: 0, vy: 0, facing: -1,
-    hp: 50, maxHp: 50,
+    hp: 34, maxHp: 34,
     state: 'dormant', t: 0, animT: 0,
     flash: 0, active: false, dead: false, phase2: false,
     nameT: 0, // name banner timer
     attackBox: null, lastAtk: '',
+    stillT: 0, lastX: 7560,
+    gore: 'blood',
+    barName: 'ASTERION, THE INFERNAL BULL',
+    title: 'A S T E R I O N', subtitle: 'Warden of the Gate, the Bull of Crete',
 
     rect() { return { x: this.x + 8, y: this.y + 6, w: this.w - 16, h: this.h - 6 }; },
 
@@ -40,6 +44,7 @@ function makeMinotaur() {
       this.state = 'dormant'; this.t = 0;
       this.active = false; this.dead = false; this.phase2 = false;
       this.attackBox = null;
+      this.stillT = 0; this.lastX = this.x;
       Game.arenaWalls = [];
       Game.waves = [];
     },
@@ -82,6 +87,15 @@ function makeMinotaur() {
       const cx = this.x + this.w / 2;
       const px = pl.x + pl.w / 2;
 
+      // watchdog: never loiter in one place for 4s — leap back to the centre
+      if (this.active && !this.dead) {
+        if (Math.abs(this.x - this.lastX) > 6) { this.lastX = this.x; this.stillT = 0; }
+        else this.stillT += dt;
+        if (this.stillT > 4 && (this.state === 'choose' || this.state === 'walk' || this.state === 'crashed')) {
+          this.stillT = 0; this.state = 'tele_recover'; this.t = 0;
+        }
+      }
+
       switch (this.state) {
         case 'dormant':
           // hulking shape waiting in the dark
@@ -109,13 +123,15 @@ function makeMinotaur() {
 
         case 'choose': {
           this.facing = px > cx ? 1 : -1;
-          if (this.t < 0.25) break;
+          if (this.t < 0.22) break;
           const d = Math.abs(px - cx);
-          if (d < 150) {
-            this.state = 'tele_axe'; this.t = 0;
-          } else if (this.phase2 && Math.random() < 0.45 && this.lastAtk !== 'leap') {
+          const r = Math.random();
+          if (d < 170) {
+            // close: alternate between the axe cleave and a wide horn sweep
+            this.state = (r < 0.5) ? 'tele_axe' : 'tele_sweep'; this.t = 0;
+          } else if (this.phase2 && r < 0.45 && this.lastAtk !== 'leap') {
             this.state = 'tele_leap'; this.t = 0;
-          } else if (Math.random() < 0.72) {
+          } else if (r < 0.74) {
             this.state = 'tele_charge'; this.t = 0;
             AudioSys.sfx('stomp');
           } else {
@@ -167,9 +183,56 @@ function makeMinotaur() {
         }
 
         case 'crashed':
+          // dazed against the wall, double-damage window — then he ALWAYS
+          // recovers by leaping back to the middle (never camps the corner)
           this.vx = 0;
-          if (this.t > (this.phase2 ? 1.0 : 1.5)) { this.state = 'choose'; this.t = 0; }
+          if (this.t > (this.phase2 ? 0.8 : 1.1)) { this.state = 'tele_recover'; this.t = 0; }
           break;
+
+        case 'tele_recover':
+          // crouch then leap to the centre of the arena
+          this.vx = 0;
+          if (Math.random() < 0.5) Particles.spawn(this.x + rand(0, this.w), this.y + this.h, { vx: rand(-40, 40), vy: rand(-30, -5), life: 0.3, size: 3, color: '#8a5a3a' });
+          if (this.t > 0.4) {
+            this.state = 'recover_leap'; this.t = 0;
+            this.vy = -560;
+            const tx = (ARENA_L + ARENA_R) / 2 - this.w / 2;
+            this.vx = (tx - this.x) / 0.78;
+            AudioSys.sfx('stomp');
+          }
+          break;
+
+        case 'recover_leap':
+          if (this.t > 0.15 && this.onGround) {
+            this.state = 'slam'; this.t = 0; this.vx = 0;
+            Game.shake(8, 0.4);
+            AudioSys.sfx('slam');
+            Particles.burst(this.x + this.w / 2, this.y + this.h, '#c8a06a', 18, 240, { life: 0.5 });
+            Game.waves.push(makeWave(this.x + this.w / 2 - 14, ARENA_FLOOR, -1));
+            Game.waves.push(makeWave(this.x + this.w / 2 + 14, ARENA_FLOOR, 1));
+          }
+          break;
+
+        case 'tele_sweep':
+          this.vx = 0;
+          this.facing = px > cx ? 1 : -1;
+          if (this.t > this.tel(0.5)) {
+            this.state = 'sweep'; this.t = 0; this.lastAtk = 'sweep';
+            AudioSys.sfx('roar');
+            Game.addFx('bigslash', this.x + this.w / 2 + this.facing * 50, this.y + 40, { flip: this.facing, rot: 0 });
+          }
+          break;
+
+        case 'sweep': {
+          // a fast wide horn swing that also lunges him forward a little
+          this.vx = this.facing * this.spd(120);
+          if (this.t < 0.26) {
+            const bx = this.facing > 0 ? this.x + this.w - 14 : this.x - 78;
+            this.attackBox = { x: bx, y: this.y + 24, w: 92, h: this.h - 24, dmg: 1, kb: 360 };
+          } else this.vx = 0;
+          if (this.t > this.tel(0.6)) { this.state = 'choose'; this.t = 0; }
+          break;
+        }
 
         case 'tele_axe':
           this.vx = 0;
@@ -274,9 +337,9 @@ function makeMinotaur() {
       const horn = this.flash > 0 ? '#fff' : '#d8cdb8';
       const eye = this.phase2 ? '#ff3020' : '#ffb030';
 
-      const crouchT = (this.state === 'tele_charge' || this.state === 'tele_leap') ? Math.min(this.t * 3, 1) : 0;
+      const crouchT = (this.state === 'tele_charge' || this.state === 'tele_leap' || this.state === 'tele_recover' || this.state === 'tele_sweep') ? Math.min(this.t * 3, 1) : 0;
       const crash = this.state === 'crashed';
-      const lean = this.state === 'charge' ? 0.35 : crouchT * -0.15;
+      const lean = (this.state === 'charge' || this.state === 'sweep' || this.state === 'recover_leap') ? 0.32 : crouchT * -0.15;
       const breathe = Math.sin(time * (this.state === 'choose' ? 3 : 6)) * 2;
 
       g.rotate(lean);
@@ -442,6 +505,251 @@ function makeWave(x, floorY, dir) {
       g.lineTo(sx + 16, sy + 30);
       g.closePath();
       g.fill();
+    },
+  };
+}
+
+// ============================================================
+// DEATH — the Pale Reaper, boss of Purgatory's summit
+// Arena: DEATH_ARENA_L..R, floor DEATH_FLOOR. He hovers and teleports.
+// ============================================================
+function makeDeath() {
+  return {
+    x: (DEATH_ARENA_L + DEATH_ARENA_R) / 2 - 34, y: DEATH_FLOOR - 170,
+    w: 68, h: 150,
+    vx: 0, vy: 0, facing: -1, hoverY: DEATH_FLOOR - 188,
+    hp: 44, maxHp: 44, alpha: 1,
+    state: 'dormant', t: 0, animT: 0, flash: 0,
+    active: false, dead: false, finished: false, phase2: false,
+    nameT: 0, attackBox: null, scytheAng: 0, gore: 'soul', lastAtk: '',
+    barName: 'DEATH, THE PALE REAPER',
+    title: 'D E A T H', subtitle: 'Who keeps all that the world lets fall',
+
+    rect() { return { x: this.x + 14, y: this.y + 10, w: this.w - 28, h: this.h - 14 }; },
+
+    start() {
+      if (this.state !== 'dormant') return;
+      this.state = 'intro'; this.t = 0; this.active = true; this.nameT = 3.4;
+      AudioSys.sfx('roar'); AudioSys.setZone('boss'); Game.shake(8, 0.9);
+      Game.arenaWalls = [
+        { x: DEATH_ARENA_L - 40, y: 60, w: 40, h: 400, type: 'solid' },
+        { x: DEATH_ARENA_R, y: 60, w: 40, h: 400, type: 'solid' },
+      ];
+      AudioSys.sfx('gate');
+    },
+    reset() {
+      this.x = (DEATH_ARENA_L + DEATH_ARENA_R) / 2 - 34; this.y = DEATH_FLOOR - 170;
+      this.vx = 0; this.vy = 0; this.alpha = 1;
+      this.hp = this.maxHp; this.state = 'dormant'; this.t = 0;
+      this.active = false; this.dead = false; this.finished = false; this.phase2 = false;
+      this.attackBox = null; Game.arenaWalls = [];
+    },
+    takeHit(dmg, dir) {
+      if (this.dead || !this.active || this.state === 'intro' || this.state === 'vanish' || this.alpha < 0.4) return false;
+      this.hp -= dmg; this.flash = 0.1;
+      Gore.hit(this.x + this.w / 2, this.y + this.h / 2, dir, 'soul', dmg > 1);
+      if (!this.phase2 && this.hp <= this.maxHp / 2) {
+        this.phase2 = true; this.state = 'enrage'; this.t = 0; this.attackBox = null;
+        AudioSys.sfx('roar'); Game.shake(7, 0.7);
+      }
+      if (this.hp <= 0) this.die();
+      return true;
+    },
+    die() {
+      this.dead = true; this.state = 'dying'; this.t = 0; this.attackBox = null; this.vx = 0;
+      AudioSys.sfx('die'); Game.shake(10, 1.1); Game.freeze(0.3);
+    },
+    tel(v) { return this.phase2 ? v * 0.72 : v; },
+
+    update(dt, pl) {
+      this.animT += dt; this.flash -= dt; this.t += dt;
+      if (this.nameT > 0) this.nameT -= dt;
+      this.attackBox = null; this.scytheAng = Math.sin(this.animT * 2) * 0.15;
+      const cx = this.x + this.w / 2, px = pl.x + pl.w / 2, py = pl.y + pl.h / 2;
+      this.facing = px > cx ? 1 : -1;
+
+      switch (this.state) {
+        case 'dormant': break;
+        case 'intro':
+          if (Math.random() < 0.5) Particles.spawn(this.x + rand(0, this.w), this.y + rand(0, this.h), { vx: rand(-20, 20), vy: rand(-40, -10), life: 0.6, size: 3, color: '#bfe0ff', glow: true });
+          if (this.t > 1.8) { this.state = 'choose'; this.t = 0; }
+          break;
+        case 'enrage':
+          if (Math.random() < 0.7) Particles.spawn(this.x + rand(0, this.w), this.y + rand(0, this.h), { vx: rand(-40, 40), vy: rand(-80, -20), life: 0.6, size: 3, color: '#dff0ff', glow: true });
+          if (this.t > 1.0) { this.state = 'choose'; this.t = 0; }
+          break;
+
+        case 'choose': {
+          // gentle hover toward a holding position
+          this.y += (this.hoverY - this.y) * dt * 2;
+          if (this.t < 0.3) break;
+          const d = Math.abs(px - cx);
+          const r = Math.random();
+          if (d < 150 && r < 0.6) { this.state = 'tele_scythe'; this.t = 0; }
+          else if (r < 0.5) { this.state = 'tele_volley'; this.t = 0; }
+          else if (r < 0.78) { this.state = 'vanish'; this.t = 0; this.lastAtk = 'tp'; }
+          else { this.state = 'summon'; this.t = 0; }
+          break;
+        }
+
+        case 'tele_scythe':
+          this.y += (this.hoverY - this.y) * dt * 2;
+          if (this.t > this.tel(0.5)) {
+            this.state = 'scythe'; this.t = 0;
+            AudioSys.sfx('thrust');
+            Game.addFx('bigslash', cx + this.facing * 70, this.y + this.h * 0.5, { flip: this.facing, rot: 0 });
+          }
+          break;
+        case 'scythe': {
+          // sweeping arc in front + a small forward glide
+          this.x += this.facing * 130 * dt;
+          if (this.t < 0.3) {
+            const bx = this.facing > 0 ? this.x + this.w - 16 : this.x - 104;
+            this.attackBox = { x: bx, y: this.y + 20, w: 120, h: this.h - 30, dmg: 1, kb: 320 };
+          }
+          if (this.t > this.tel(0.7)) { this.state = 'choose'; this.t = 0; }
+          break;
+        }
+
+        case 'tele_volley':
+          this.y += (this.hoverY - this.y) * dt * 2;
+          if (this.t > this.tel(0.55)) {
+            this.state = 'choose'; this.t = 0;
+            // fan of soul-bolts toward the player
+            const n = this.phase2 ? 5 : 3;
+            const base = Math.atan2(py - (this.y + 40), px - cx);
+            for (let i = 0; i < n; i++) {
+              const a = base + (i - (n - 1) / 2) * 0.22;
+              const sp = 200;
+              Game.shots.push(makeShot(cx, this.y + 40, Math.cos(a) * sp, Math.sin(a) * sp, 'soulbolt', 'enemy', 1));
+            }
+            AudioSys.sfx('orb');
+          }
+          break;
+
+        case 'vanish':
+          this.alpha = 1 - this.t / 0.45;
+          if (Math.random() < 0.8) Particles.spawn(this.x + rand(0, this.w), this.y + rand(0, this.h), { vx: rand(-30, 30), vy: rand(-30, 30), life: 0.5, size: 3, color: '#bfe0ff', glow: true });
+          if (this.t > 0.45) {
+            // reappear flanking the player, inside the arena
+            const side = (px > (DEATH_ARENA_L + DEATH_ARENA_R) / 2) ? -1 : 1;
+            this.x = clamp(px + side * 170 - this.w / 2, DEATH_ARENA_L + 20, DEATH_ARENA_R - this.w - 20);
+            this.y = this.hoverY;
+            this.state = 'appear'; this.t = 0;
+            AudioSys.sfx('spirit');
+          }
+          break;
+        case 'appear':
+          this.alpha = this.t / 0.3;
+          if (this.t > 0.3) { this.alpha = 1; this.state = 'tele_scythe'; this.t = 0; }
+          break;
+
+        case 'summon':
+          this.y += (this.hoverY - this.y) * dt * 2;
+          if (this.t > this.tel(0.6)) {
+            this.state = 'choose'; this.t = 0;
+            const n = this.phase2 ? 4 : 3;
+            for (let i = 0; i < n; i++) Game.sinners.push(makeSinner(rand(DEATH_ARENA_L + 60, DEATH_ARENA_R - 60)));
+            AudioSys.sfx('shriek');
+          }
+          break;
+
+        case 'dying':
+          this.alpha = clamp(1 - this.t / 2.4, 0, 1);
+          if (Math.random() < 0.85) Particles.spawn(this.x + rand(0, this.w), this.y + rand(0, this.h), { vx: rand(-50, 50), vy: rand(-120, -20), life: rand(0.5, 1.2), size: rand(2, 4), color: Math.random() < 0.5 ? '#bfe0ff' : '#dff0ff', glow: true });
+          if (this.t > 2.4 && !this.finished) {
+            this.finished = true;
+            Particles.burst(this.x + this.w / 2, this.y + this.h / 2, '#eaf4ff', 44, 420, { life: 1.3, glow: true });
+            Game.onDeathBossDead();
+          }
+          break;
+      }
+
+      // contact + attack damage
+      if (!this.dead && this.active && this.state !== 'intro' && this.alpha > 0.5) {
+        if (this.attackBox && rectsOverlap(this.attackBox, pl)) pl.hurt(this.attackBox.dmg, this.x + this.w / 2);
+        else if (rectsOverlap(this.rect(), pl)) pl.hurt(1, this.x + this.w / 2);
+      }
+    },
+
+    draw(camX, camY, time) {
+      if (this.finished) return;
+      const g = ctx;
+      const sx = this.x + this.w / 2 - camX, sy = this.y + this.h - camY;
+      if (sx < -260 || sx > VW + 260) return;
+      g.save();
+      g.translate(sx, sy);
+      g.globalAlpha = clamp(this.alpha, 0, 1) * (this.state === 'dying' ? clamp(1 - this.t / 2.4, 0, 1) : 1);
+      g.scale(this.facing, 1);
+
+      const robe = this.flash > 0 ? '#fff' : '#16131c';
+      const robeHi = this.flash > 0 ? '#fff' : '#2a2434';
+      const bone = this.flash > 0 ? '#fff' : '#d8d2c0';
+      const eye = this.phase2 ? '#ff3a3a' : '#9ad8ff';
+      const float = Math.sin(time * 1.6) * 5;
+
+      // tattered robe (no legs — he floats, hem frays into wisps)
+      g.fillStyle = robe;
+      g.beginPath();
+      g.moveTo(0, -120 + float);
+      g.quadraticCurveTo(-34, -90 + float, -30, -30);
+      const hem = -2 + float;
+      g.lineTo(-26, hem + Math.sin(time * 6) * 6);
+      g.lineTo(-18, hem - 8);
+      g.lineTo(-10, hem + Math.sin(time * 6 + 1) * 8);
+      g.lineTo(-2, hem - 6);
+      g.lineTo(6, hem + Math.sin(time * 6 + 2) * 8);
+      g.lineTo(14, hem - 8);
+      g.lineTo(22, hem + Math.sin(time * 6 + 3) * 6);
+      g.quadraticCurveTo(34, -90 + float, 0, -120 + float);
+      g.closePath(); g.fill();
+      // inner robe shading + ribs showing through
+      g.fillStyle = robeHi;
+      g.beginPath(); g.moveTo(-6, -116 + float); g.quadraticCurveTo(-20, -70 + float, -14, -30); g.lineTo(-2, -34); g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(200,196,180,0.18)'; g.lineWidth = 2;
+      for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(-10, -96 + i * 12 + float); g.lineTo(8, -96 + i * 12 + float); g.stroke(); }
+
+      // hood + skull
+      const hy = -120 + float;
+      g.fillStyle = robe;
+      g.beginPath(); g.arc(2, hy, 18, Math.PI * 0.75, Math.PI * 2.3); g.closePath(); g.fill();
+      g.fillStyle = bone;
+      g.beginPath(); g.arc(5, hy + 2, 10, 0, 7); g.fill();
+      g.fillStyle = '#0a0a12';
+      g.beginPath(); g.arc(3, hy, 3, 0, 7); g.fill();
+      g.beginPath(); g.arc(10, hy, 3, 0, 7); g.fill();
+      g.fillStyle = eye; // glowing sockets
+      g.beginPath(); g.arc(3, hy, 1.6, 0, 7); g.fill();
+      g.beginPath(); g.arc(10, hy, 1.6, 0, 7); g.fill();
+      // ram horns on the hood
+      g.fillStyle = bone;
+      g.beginPath(); g.moveTo(-12, hy - 8); g.quadraticCurveTo(-28, hy - 4, -24, hy + 12); g.quadraticCurveTo(-20, hy - 2, -8, hy - 4); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(18, hy - 8); g.quadraticCurveTo(34, hy - 4, 30, hy + 12); g.quadraticCurveTo(26, hy - 2, 14, hy - 4); g.closePath(); g.fill();
+
+      // skeletal arm + the great scythe
+      const swing = (this.state === 'scythe') ? lerp(-1.0, 1.1, clamp(this.t / 0.3, 0, 1))
+                  : (this.state === 'tele_scythe') ? -1.1 : this.scytheAng;
+      g.save();
+      g.translate(16, -84 + float);
+      g.rotate(swing);
+      // haft
+      g.strokeStyle = '#2a1c14'; g.lineWidth = 4;
+      g.beginPath(); g.moveTo(0, 30); g.lineTo(0, -56); g.stroke();
+      // blade
+      g.fillStyle = '#b8bcc4';
+      g.beginPath();
+      g.moveTo(0, -56);
+      g.quadraticCurveTo(54, -60, 64, -18);
+      g.quadraticCurveTo(40, -40, 2, -40);
+      g.closePath(); g.fill();
+      g.strokeStyle = '#eef2f6'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(2, -56); g.quadraticCurveTo(48, -58, 60, -22); g.stroke();
+      g.restore();
+      // forearm
+      g.fillStyle = bone; g.fillRect(8, -86 + float, 6, 26);
+
+      g.globalAlpha = 1;
+      g.restore();
     },
   };
 }
