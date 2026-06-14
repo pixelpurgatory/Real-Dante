@@ -206,7 +206,7 @@ function makePlayer(x, y) {
         this.buffs[k] -= dt;
         if (this.buffs[k] <= 0) delete this.buffs[k];
       }
-      if (!this.hasBuff('doublejump')) this.airJumps = Math.min(this.airJumps, 0);
+      if (!this.hasBuff('doublejump') && !Game.permaDoubleJump) this.airJumps = Math.min(this.airJumps, 0);
       if (this.hasBuff('regen')) {
         this.regenT += dt;
         if (this.regenT >= 4 && this.hp < this.maxHp) { this.regenT = 0; this.hp++; AudioSys.sfx('heal'); Particles.burst(this.x + this.w / 2, this.y + 10, '#cfe8ff', 8, 120, { grav: -120, life: 0.6 }); }
@@ -267,7 +267,7 @@ function makePlayer(x, y) {
 
       // ----- jump -----
       if (inControl && Input.jumpP()) this.jumpBuf = 0.12;
-      if (this.onGround) { this.coyote = 0.1; this.canDash = true; if (this.hasBuff('doublejump')) this.airJumps = 1; }
+      if (this.onGround) { this.coyote = 0.1; this.canDash = true; if (this.hasBuff('doublejump') || Game.permaDoubleJump) this.airJumps = 1; }
       if (this.jumpBuf > 0 && this.coyote > 0 && !dashing) {
         // drop through one-way platforms
         if (Input.down() && this.groundPlat && this.groundPlat.type === 'oneway') {
@@ -552,16 +552,18 @@ function makePlayer(x, y) {
       // arm
       g.fillStyle = cloakD;
       g.fillRect(2, -27 + bob, 6, 4);
-      // 2H greatsword mid-swing, oriented by attack direction
+      // 2H greatsword mid-swing — snaps through the arc in the first ~70ms so
+      // the blade lands WITH the slash effect (no lag), then holds extended
       if (this.atkT > 0) {
-        const p = clamp(1 - this.atkT / 0.20, 0, 1);
+        const p = clamp((0.20 - this.atkT) / 0.07, 0, 1);
+        const e = 1 - (1 - p) * (1 - p); // ease-out so it whips fast then settles
         g.save();
         if (this.atkDir === 1) {            // up-strike
-          g.translate(3, -34 + bob); g.rotate(lerp(0.5, -0.15, p));
+          g.translate(3, -34 + bob); g.rotate(lerp(0.9, -0.25, e));
         } else if (this.atkDir === 2) {     // down-strike
-          g.translate(3, -16); g.rotate(lerp(Math.PI * 0.7, Math.PI, p));
+          g.translate(3, -16); g.rotate(lerp(Math.PI * 0.55, Math.PI + 0.08, e));
         } else {                            // forward chop (overhead → forward)
-          g.translate(3, -30 + bob); g.rotate(lerp(-2.3, 0.25, p));
+          g.translate(3, -30 + bob); g.rotate(lerp(-2.5, 0.35, e));
         }
         this.drawGreatsword(g, ghost);
         g.restore();
@@ -712,7 +714,7 @@ function makeShade(spec) {
 // --- Harpy: patrols air, telegraphed dive ---
 function makeHarpy(spec) {
   const e = baseEnemy(spec, 34, 26);
-  e.hp = e.maxHp = 3;
+  e.hp = e.maxHp = 1;          // birds drop in a single strike
   e.deathColor = '#d8b08a';
   e.gore = 'blood';
   e.anchor = 'center';

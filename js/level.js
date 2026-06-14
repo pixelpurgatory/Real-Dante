@@ -49,8 +49,8 @@ const PLATFORMS = [
   { x: 1330, y: 250, w: 90,  h: 10, type: 'oneway', puzzle: 1 },
   { x: 4980, y: 360, w: 90,  h: 12, type: 'solid',  puzzle: 1 },  // descent (D5 area)
   { x: 5160, y: 312, w: 90,  h: 12, type: 'solid',  puzzle: 1 },
-  { x: 6760, y: 360, w: 90,  h: 12, type: 'solid',  puzzle: 1 },  // gates
-  { x: 7020, y: 318, w: 90,  h: 12, type: 'solid',  puzzle: 1 },
+  { x: 6160, y: 360, w: 90,  h: 12, type: 'solid',  puzzle: 1 },  // gates (before the arena)
+  { x: 6360, y: 312, w: 90,  h: 12, type: 'solid',  puzzle: 1 },
   { x: 8760, y: 300, w: 110, h: 14, type: 'solid',  puzzle: 1 },  // limbo (atop the isles)
 
   // ============================================================
@@ -149,7 +149,7 @@ const NPCS = [
 const PICKUPS = [
   { x: 1375,  y: 222, buff: 'doublejump' },  // village
   { x: 5205,  y: 284, buff: 'damage' },      // descent
-  { x: 7065,  y: 290, buff: 'fireball' },    // gates
+  { x: 6405,  y: 284, buff: 'fireball' },    // gates (before the arena)
   { x: 8815,  y: 272, buff: 'regen' },       // limbo
   { x: 12110, y: 272, buff: 'doublejump' },  // purgatory
 ];

@@ -20,6 +20,7 @@ const Game = {
   endStarted: false, endT: 0, victoryT: 0,
   respawnFade: 0,
   bossDefeated: false, deathDefeated: false,
+  permaDoubleJump: false, bonusHp: 0, respawnBuffs: false,
   sinnerT: 0,
   titleCam: 0, titleDir: 1,
   time: 0,
@@ -42,19 +43,27 @@ const Game = {
       this.stats = { time: 0, deaths: 0, kills: 0 };
       this.bossDefeated = false;
       this.deathDefeated = false;
+      this.permaDoubleJump = false;
+      this.bonusHp = 0;
       this.triggers = TRIGGERS.map(t => Object.assign({ fired: false }, t));
       this.beatrice = makeBeatrice();
       this.endStarted = false;
       this.cinematic = false;
       this.endT = 0; this.victoryT = 0;
       this.pickups = PICKUPS.map(makePickup);
-      this.takenBuffs = {};
-      HUD.prevHp = this.player.hp;
+    } else if (this.respawnBuffs) {
+      // every 5th death, the shrine boons rekindle
+      this.respawnBuffs = false;
+      this.pickups = PICKUPS.map(makePickup);
     } else {
-      // preserve collected pickups across respawns
+      // otherwise preserve collected pickups across respawns
       const prev = this.pickups || [];
       this.pickups = PICKUPS.map((p, i) => { const np = makePickup(p); if (prev[i] && prev[i].taken) np.taken = true; return np; });
     }
+    // apply permanent upgrades earned in the run
+    this.player.maxHp = 5 + (this.bonusHp || 0);
+    this.player.hp = this.player.maxHp;
+    HUD.prevHp = this.player.hp;
     this.enemies = ENEMY_SPAWNS.map(s => spawnEnemy(s)).filter(Boolean);
     this.npcs = NPCS.map(makeNPC);
     this.orbs = [];
@@ -86,8 +95,15 @@ const Game = {
     this.arenaWalls = [];
     this.waves = [];
     AudioSys.setZone(musicZoneAt(this.player.x));
+    // permanent rewards: greater vigor (+5 HP) and the gift of flight (double jump)
+    this.permaDoubleJump = true;
+    this.bonusHp = 5;
+    this.player.maxHp = 5 + this.bonusHp;
+    this.player.hp = this.player.maxHp;
+    HUD.prevHp = this.player.hp;
     Dialogue.say([
-      { s: 'dante', t: "Even Hell's wardens fall. Hold on, Beatrice — I am coming." },
+      { s: 'dante', t: "Even Hell's wardens fall. The Bull's strength is mine now." },
+      { s: 'dante', t: "My heart beats stronger — and the air itself will bear me up. Hold on, Beatrice." },
     ]);
     // set forward checkpoint automatically
     this.respawn = { x: CHECKPOINTS[3].x, y: CHECKPOINTS[3].y };
@@ -108,6 +124,7 @@ const Game = {
 
   respawnPlayer() {
     this.stats.deaths++;
+    this.respawnBuffs = (this.stats.deaths % 5 === 0); // shrines rekindle every 5 deaths
     const keepBossDead = this.bossDefeated;
     this.resetWorld(false);
     this.player.x = this.respawn.x;

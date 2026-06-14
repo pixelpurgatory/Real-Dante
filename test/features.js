@@ -53,6 +53,23 @@ npc.takeHit(1,1); ok(Dialogue.busy(),'NPC speaks when struck');
 const wasKills=Game.stats.kills;
 npc.takeHit(5,1); ok(npc.dead,'NPC can be killed');
 
+console.log('--- birds are 1-hit + boss rewards ---');
+ok(spawnEnemy({type:'harpy',x:1,y:1,min:0,max:2}).maxHp===1,'harpy (bird) is a 1-hit kill');
+Game.bossDefeated=false; Game.bonusHp=0; Game.permaDoubleJump=false;
+Game.onBossDead();
+ok(Game.permaDoubleJump===true,'permanent double jump granted after first boss');
+ok(Game.player.maxHp===10,'+5 max HP after first boss (maxHp='+Game.player.maxHp+')');
+Game.player.buffs={}; Game.player.airJumps=0; Game.player.onGround=true; Game.update(1/60);
+ok(Game.player.airJumps>=1,'perma double-jump arms an air jump without a buff');
+
+console.log('--- shrines rekindle every 5 deaths ---');
+Game.stats.deaths=0;
+Game.pickups.forEach(p=>p.taken=true);
+let stillTakenAt4=false;
+for(let d=1;d<=5;d++){ Game.respawnPlayer(); if(d===4) stillTakenAt4=Game.pickups.some(p=>p.taken); }
+ok(stillTakenAt4,'buffs stay used between death 1–4');
+ok(Game.pickups.every(p=>!p.taken),'all shrines respawn on the 5th death');
+
 console.log('--- Death boss activates + dies ---');
 Game.deathBoss.reset();
 Game.player.x=(15260+16640)/2; Game.player.y=400; Game.player.dead=false; Game.player.hp=5;
