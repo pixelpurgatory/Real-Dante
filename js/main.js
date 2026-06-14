@@ -6,8 +6,9 @@
 const Game = {
   state: 'title',          // title | play | victory
   paused: false,
-  player: null, enemies: [], boss: null, beatrice: null,
+  player: null, enemies: [], boss: null, deathBoss: null, beatrice: null,
   orbs: [], waves: [], fx: [],
+  shots: [], pickups: [], npcs: [], sinners: [],
   arenaWalls: [],
   triggers: [],
   camX: 0, camY: 0,
@@ -18,7 +19,8 @@ const Game = {
   cinematic: false,
   endStarted: false, endT: 0, victoryT: 0,
   respawnFade: 0,
-  bossDefeated: false,
+  bossDefeated: false, deathDefeated: false,
+  sinnerT: 0,
   titleCam: 0, titleDir: 1,
   time: 0,
   beatriceScene: null,
@@ -39,32 +41,34 @@ const Game = {
       this.player = makePlayer(this.respawn.x, this.respawn.y);
       this.stats = { time: 0, deaths: 0, kills: 0 };
       this.bossDefeated = false;
+      this.deathDefeated = false;
       this.triggers = TRIGGERS.map(t => Object.assign({ fired: false }, t));
       this.beatrice = makeBeatrice();
       this.endStarted = false;
       this.cinematic = false;
       this.endT = 0; this.victoryT = 0;
+      this.pickups = PICKUPS.map(makePickup);
+      this.takenBuffs = {};
       HUD.prevHp = this.player.hp;
+    } else {
+      // preserve collected pickups across respawns
+      const prev = this.pickups || [];
+      this.pickups = PICKUPS.map((p, i) => { const np = makePickup(p); if (prev[i] && prev[i].taken) np.taken = true; return np; });
     }
     this.enemies = ENEMY_SPAWNS.map(s => spawnEnemy(s)).filter(Boolean);
+    this.npcs = NPCS.map(makeNPC);
     this.orbs = [];
     this.waves = [];
+    this.shots = [];
+    this.sinners = [];
     this.fx = [];
     this.arenaWalls = [];
-    if (!this.boss || !this.bossDefeated) {
-      this.boss = makeMinotaur();
-    } else {
-      this.boss.finished = true;
-      this.boss.dead = true;
-      this.boss.active = false;
-    }
-    if (this.bossDefeated) {
-      this.boss = makeMinotaur();
-      this.boss.dead = true;
-      this.boss.finished = true;
-      this.boss.active = false;
-      this.boss.state = 'gone';
-    }
+    // gates boss
+    this.boss = makeMinotaur();
+    if (this.bossDefeated) { this.boss.dead = true; this.boss.finished = true; this.boss.active = false; this.boss.state = 'gone'; }
+    // purgatory boss (Death)
+    this.deathBoss = makeDeath();
+    if (this.deathDefeated) { this.deathBoss.dead = true; this.deathBoss.finished = true; this.deathBoss.active = false; this.deathBoss.state = 'gone'; }
     Dialogue.clear();
   },
 
@@ -92,6 +96,16 @@ const Game = {
     Newsletter.maybeShow('boss-win');
   },
 
+  onDeathBossDead() {
+    this.deathDefeated = true;
+    this.arenaWalls = [];
+    this.waves = [];
+    AudioSys.setZone(musicZoneAt(this.player.x));
+    Dialogue.say([
+      { s: 'dante', t: "Even Death can be made to wait. Beatrice — I am here." },
+    ]);
+  },
+
   respawnPlayer() {
     this.stats.deaths++;
     const keepBossDead = this.bossDefeated;
@@ -111,10 +125,9 @@ const Game = {
     this.endT = 0;
     AudioSys.setZone('limbo');
     Dialogue.say([
-      { s: 'beatrice', t: "You should not have come, beloved. But since you have—" },
-      { s: 'beatrice', t: "—know that I am not lost. Only kept. Eight circles below, the Keeper holds my light." },
-      { s: 'dante', t: "Then circle by circle, I will unmake his hold." },
-      { s: 'beatrice', t: "I know. That is why I love you. Walk with the morning star, my Dante." },
+      { s: 'beatrice', t: "You climbed through Hell and Death to reach me. Oh, my Dante." },
+      { s: 'beatrice', t: "Take my hand. The light above is not for the dead alone." },
+      { s: 'dante', t: "Wherever you are kept, I will always come. Lead on, Beatrice." },
     ]);
   },
 
@@ -166,7 +179,8 @@ const Game = {
     const pl = this.player;
 
     // music zone
-    if (this.boss && this.boss.active && !this.boss.dead) AudioSys.setZone('boss');
+    if ((this.boss && this.boss.active && !this.boss.dead) ||
+        (this.deathBoss && this.deathBoss.active && !this.deathBoss.dead)) AudioSys.setZone('boss');
     else AudioSys.setZone(musicZoneAt(pl.x));
 
     // player
@@ -254,7 +268,7 @@ const Game = {
       if (this.waves[i].dead) this.waves.splice(i, 1);
     }
 
-    // boss
+    // boss (Gates — Asterion)
     if (this.boss && !this.boss.finished) {
       if (!this.bossDefeated && this.boss.state === 'dormant' && pl.x > 6920 && pl.x < ARENA_R) {
         this.boss.start();
@@ -262,6 +276,53 @@ const Game = {
       if (this.boss.active || this.boss.state === 'dormant') {
         this.boss.update(dt, pl);
       }
+    }
+
+    // ---- projectiles (arrows / soul-bolts / player fireballs) ----
+    for (let i = this.shots.length - 1; i >= 0; i--) {
+      const s = this.shots[i];
+      s.update(dt);
+      if (!s.dead) {
+        if (s.from === 'enemy') {
+          if (pl.invuln <= 0 && rectsOverlap(s.rect(), pl)) { pl.hurt(s.dmg, s.x); s.dead = true; }
+        } else { // player fireball
+          for (const e of this.enemies) { if (!e.dead && !e.noHit && rectsOverlap(s.rect(), e.rect())) { e.takeHit(s.dmg, s.vx >= 0 ? 1 : -1, 0); s.dead = true; break; } }
+          if (!s.dead) for (const sn of this.sinners) { if (!sn.dead && rectsOverlap(s.rect(), sn.rect())) { sn.takeHit(s.dmg, s.vx >= 0 ? 1 : -1); s.dead = true; break; } }
+          if (!s.dead && this.boss && this.boss.active && !this.boss.dead && rectsOverlap(s.rect(), this.boss.rect())) { this.boss.takeHit(s.dmg, s.vx >= 0 ? 1 : -1, 0); s.dead = true; }
+          if (!s.dead && this.deathBoss && this.deathBoss.active && !this.deathBoss.dead && rectsOverlap(s.rect(), this.deathBoss.rect())) { this.deathBoss.takeHit(s.dmg, s.vx >= 0 ? 1 : -1); s.dead = true; }
+        }
+      }
+      if (s.dead) { Particles.burst(s.x, s.y, s.kind === 'fireball' ? '#ff9a40' : '#bfe0ff', 6, 140, { life: 0.3 }); this.shots.splice(i, 1); }
+    }
+
+    // ---- buff pickups ----
+    for (const pk of this.pickups) pk.update(dt, pl);
+
+    // ---- neutral NPCs ----
+    for (const n of this.npcs) {
+      if (n.dead) continue;
+      if (Math.abs((n.x + n.w / 2) - (pl.x + pl.w / 2)) < 760) n.update(dt, pl);
+    }
+    this.npcs = this.npcs.filter(n => !n.dead);
+
+    // ---- falling sinners (Purgatory rain of the damned) ----
+    if (pl.x > 10700 && !this.deathDefeated) {
+      this.sinnerT -= dt;
+      if (this.sinnerT <= 0 && this.sinners.length < 6) { this.sinnerT = rand(1.4, 2.8); this.sinners.push(makeSinner(clamp(pl.x + rand(-220, 280), 10820, WORLD_W - 80))); }
+    }
+    for (const sn of this.sinners) {
+      if (sn.dead) continue;
+      sn.update(dt, pl);
+      if (!sn.dead && pl.invuln <= 0 && rectsOverlap(sn.rect(), pl)) pl.hurt(sn.touchDmg, sn.x + sn.w / 2);
+    }
+    this.sinners = this.sinners.filter(s => !s.dead);
+
+    // ---- Death boss (Purgatory summit) ----
+    if (this.deathBoss && !this.deathBoss.finished) {
+      if (!this.deathDefeated && this.deathBoss.state === 'dormant' && pl.x > DEATH_ARENA_L + 60 && pl.x < DEATH_ARENA_R) {
+        this.deathBoss.start();
+      }
+      if (this.deathBoss.active || this.deathBoss.state === 'dormant') this.deathBoss.update(dt, pl);
     }
 
     // beatrice
@@ -296,8 +357,8 @@ const Game = {
       }
     }
 
-    // ending
-    if (!this.endStarted && pl.x > FINAL_SCENE_X && this.bossDefeated) {
+    // ending (requires both bosses defeated and reaching the summit)
+    if (!this.endStarted && pl.x > FINAL_SCENE_X && this.deathDefeated) {
       this.startEnding();
     }
     if (this.endStarted) {
@@ -328,12 +389,25 @@ const Game = {
     if (this.boss && this.boss.active && !this.boss.dead) {
       target = clamp(target, ARENA_L - 30, ARENA_R + 70 - VW);
     }
+    if (this.deathBoss && this.deathBoss.active && !this.deathBoss.dead) {
+      target = clamp(target, DEATH_ARENA_L - 30, DEATH_ARENA_R + 70 - VW);
+    }
     if (this.endStarted) target = this.beatrice.x - VW / 2 - 60;
     target = clamp(target, 0, WORLD_W - VW);
     const k = 1 - Math.pow(0.0001, dt); // smooth, framerate independent
     this.camX += (target - this.camX) * k * 1.1;
     this.camX = clamp(this.camX, 0, WORLD_W - VW);
     this.camY = 0;
+  },
+
+  // draw an actor magnified by ASCALE about its anchor (slightly bigger sprites)
+  drawBig(a, camX, camY) {
+    const ax = (a.x + a.w / 2) - camX;
+    const ay = (a.anchor === 'center') ? (a.y + a.h / 2) - camY : (a.y + a.h) - camY;
+    ctx.save();
+    ctx.translate(ax, ay); ctx.scale(ASCALE, ASCALE); ctx.translate(-ax, -ay);
+    a.draw(camX, camY, this.time);
+    ctx.restore();
   },
 
   // -------------- draw --------------
@@ -392,11 +466,16 @@ const Game = {
 
     if (this.state !== 'title') {
       this.beatrice.draw(cx, cy, this.time);
-      for (const e of this.enemies) if (!e.dead) e.draw(cx, cy, this.time);
-      if (this.boss && !this.boss.finished) this.boss.draw(cx, cy, this.time);
+      for (const pk of this.pickups) pk.draw(cx, cy, this.time);
+      for (const n of this.npcs) if (!n.dead) this.drawBig(n, cx, cy);
+      for (const e of this.enemies) if (!e.dead) this.drawBig(e, cx, cy);
+      for (const sn of this.sinners) if (!sn.dead) this.drawBig(sn, cx, cy);
+      if (this.boss && !this.boss.finished) this.drawBig(this.boss, cx, cy);
+      if (this.deathBoss && !this.deathBoss.finished) this.drawBig(this.deathBoss, cx, cy);
       for (const o of this.orbs) o.draw(cx, cy, this.time);
+      for (const s of this.shots) s.draw(cx, cy);
       for (const w of this.waves) w.draw(cx, cy, this.time);
-      this.player.draw(cx, cy, this.time);
+      this.drawBig(this.player, cx, cy);
       for (const f of this.fx) drawFx(f, cx, cy);
     }
 
@@ -418,7 +497,10 @@ const Game = {
     // HUD & dialogue
     if (this.state === 'play') {
       HUD.draw(this.player, this.time);
-      if (this.boss) HUD.drawBossBar(this.boss, this.time);
+      const activeBoss = (this.deathBoss && this.deathBoss.active && !this.deathBoss.finished) ? this.deathBoss
+                       : (this.boss && this.boss.active && !this.boss.finished) ? this.boss : null;
+      if (activeBoss) HUD.drawBossBar(activeBoss, this.time);
+      HUD.drawBuffs(this.player, this.time);
       Dialogue.draw(cx, cy, this.time);
       if (AudioSys.muted) {
         ctx.font = '11px Georgia';

@@ -14,7 +14,7 @@
 const PLATFORMS = [
   // world borders
   { x: -120, y: -400, w: 40, h: 1200, type: 'solid' },
-  { x: 10780, y: -400, w: 60, h: 1200, type: 'solid' },
+  { x: 16780, y: -400, w: 60, h: 1200, type: 'solid' },
 
   // VILLAGE
   { x: -80,  y: 438, w: 420, h: 12,  type: 'solid', deco: 'dock' },
@@ -42,7 +42,33 @@ const PLATFORMS = [
   { x: 8760, y: 346, w: 150, h: 16,  type: 'solid' },
   { x: 8990, y: 406, w: 190, h: 16,  type: 'solid' },
   { x: 9270, y: 366, w: 160, h: 16,  type: 'solid' },
-  { x: 9520, y: 426, w: 1280, h: 294, type: 'solid' },  // final shore
+  { x: 9520, y: 426, w: 1280, h: 294, type: 'solid' },  // final shore (Limbo)
+
+  // ---- buff puzzle platforms (small optional climbs to a bonus orb) ----
+  { x: 1120, y: 286, w: 90,  h: 10, type: 'oneway', puzzle: 1 },  // village (above balconies)
+  { x: 1330, y: 250, w: 90,  h: 10, type: 'oneway', puzzle: 1 },
+  { x: 4980, y: 360, w: 90,  h: 12, type: 'solid',  puzzle: 1 },  // descent (D5 area)
+  { x: 5160, y: 312, w: 90,  h: 12, type: 'solid',  puzzle: 1 },
+  { x: 6760, y: 360, w: 90,  h: 12, type: 'solid',  puzzle: 1 },  // gates
+  { x: 7020, y: 318, w: 90,  h: 12, type: 'solid',  puzzle: 1 },
+  { x: 8760, y: 300, w: 110, h: 14, type: 'solid',  puzzle: 1 },  // limbo (atop the isles)
+
+  // ============================================================
+  // PURGATORY — ascending the mountain of the seven cornices
+  // ============================================================
+  { x: 10800, y: 442, w: 720, h: 278, type: 'solid' },   // PG1  10800-11520
+  { x: 11640, y: 442, w: 440, h: 278, type: 'solid' },   // PG2  11640-12080 (gap 120, flat)
+  { x: 11880, y: 356, w: 100, h: 12,  type: 'solid',  puzzle: 2 },  // purgatory puzzle climb
+  { x: 12060, y: 300, w: 100, h: 12,  type: 'solid',  puzzle: 2 },
+  { x: 12200, y: 440, w: 560, h: 280, type: 'solid' },   // PG3  12200-12760 (gap 120)
+  { x: 12900, y: 440, w: 490, h: 280, type: 'solid' },   // PG4  12900-13390 (gap 140)
+  { x: 13180, y: 356, w: 110, h: 12,  type: 'oneway' },  // high ledge (bowman perch)
+  { x: 13510, y: 440, w: 570, h: 280, type: 'solid' },   // PG5  13510-14080 (gap 120)
+  { x: 14210, y: 442, w: 530, h: 278, type: 'solid' },   // PG6  14210-14740 (gap 130)
+  { x: 14870, y: 442, w: 330, h: 278, type: 'solid' },   // PG7 approach 14870-15200 (gap 130)
+
+  // DEATH'S ARENA floor
+  { x: 15200, y: 442, w: 1580, h: 278, type: 'solid' },  // 15200-16780
 ];
 
 // ---------- hazards ----------
@@ -58,10 +84,12 @@ const HAZARDS = [
 
 // ---------- checkpoints (lit shrines) ----------
 const CHECKPOINTS = [
-  { x: 120,  y: 402 },
-  { x: 2440, y: 394 },
-  { x: 5830, y: 400 },
-  { x: 7990, y: 400 },
+  { x: 120,   y: 402 },
+  { x: 2440,  y: 394 },
+  { x: 5830,  y: 400 },
+  { x: 7990,  y: 400 },
+  { x: 10880, y: 406 },   // Purgatory entrance
+  { x: 15280, y: 406 },   // Death's arena
 ];
 
 // ---------- enemy spawns ----------
@@ -84,6 +112,7 @@ const ENEMY_SPAWNS = [
 
   { type: 'hoplite', x: 6120, gy: 436, min: 5990, max: 6320 },
   { type: 'harpy',   x: 6400, y: 190, min: 6280, max: 6560 },
+  { type: 'bowman',  x: 6680, gy: 436, min: 6600, max: 6920 },   // first ranged enemy
 
   { type: 'weeper',  x: 8600, y: 270 },
   { type: 'shade',   x: 8870, y: 280 },
@@ -91,14 +120,51 @@ const ENEMY_SPAWNS = [
   { type: 'wraith',  x: 9750, gy: 426, min: 9560, max: 10120 },
   { type: 'weeper',  x: 9960, y: 270 },
   { type: 'wraith',  x: 10200, gy: 426, min: 9960, max: 10420 },
+
+  // ---- PURGATORY ----
+  { type: 'soul',    x: 11000, y: 240, min: 10860, max: 11500 },
+  { type: 'bowman',  x: 11770, gy: 430, min: 11680, max: 12060 },
+  { type: 'soul',    x: 12350, y: 220, min: 12240, max: 12740 },
+  { type: 'wraith',  x: 13060, gy: 430, min: 12940, max: 13380 },
+  { type: 'bowman',  x: 13235, gy: 356, min: 13190, max: 13285 },  // on the high ledge
+  { type: 'soul',    x: 13720, y: 230, min: 13540, max: 14060 },
+  { type: 'wraith',  x: 14420, gy: 430, min: 14260, max: 14720 },
+  { type: 'soul',    x: 14960, y: 240, min: 14880, max: 15180 },
 ];
+
+// ---------- neutral NPCs (don't attack; killable; speak when struck) ----------
+const NPCS = [
+  { x: 560,   gy: 430, name: 'Old Fisher',     gore: 'blood',
+    lines: ["The lake gives up no bodies tonight, signore...", "Why do you look at me so?"] },
+  { x: 6050,  gy: 436, name: 'Damned Soul',    gore: 'blood',
+    lines: ["Turn back. The Bull gores all who knock.", "You strike me? I am already dead, fool."] },
+  { x: 12520, gy: 438, name: 'Penitent',       gore: 'blood',
+    lines: ["I climb to be cleansed — do not delay me.", "Even here, the living bring violence..."] },
+  { x: 14560, gy: 430, name: 'Weeping Pilgrim', gore: 'blood',
+    lines: ["Death waits at the summit. None pass.", "Ah— so this is how a soul ends twice."] },
+];
+
+// ---------- buff pickups (atop optional jump puzzles) ----------
+// buff: 'damage' | 'regen' | 'doublejump' | 'fireball'
+const PICKUPS = [
+  { x: 1375,  y: 222, buff: 'doublejump' },  // village
+  { x: 5205,  y: 284, buff: 'damage' },      // descent
+  { x: 7065,  y: 290, buff: 'fireball' },    // gates
+  { x: 8815,  y: 272, buff: 'regen' },       // limbo
+  { x: 12110, y: 272, buff: 'doublejump' },  // purgatory
+];
+
+// ---------- Death arena ----------
+const DEATH_ARENA_L = 15260, DEATH_ARENA_R = 16640, DEATH_FLOOR = 442;
 
 // ---------- Beatrice scripted appearances ----------
 const BEATRICE_SPOTS = [
   { x: 770,   y: 384 },
   { x: 2480,  y: 384 },
   { x: 6480,  y: 390 },
-  { x: 10480, y: 380 },
+  { x: 10480, y: 380 },   // Limbo → Purgatory transition
+  { x: 13000, y: 384 },   // Purgatory
+  { x: 16320, y: 380 },   // final
 ];
 
 // ---------- lore / dialogue triggers ----------
@@ -155,9 +221,30 @@ const TRIGGERS = [
   { x: 8550, w: 180, once: true, lines: [
     { s: 'dante', t: "The virtuous dead weep here. I would weep with them, had I the time." },
   ]},
+  { x: 1300, w: 150, once: true, lines: [
+    { s: 'sign', t: "Climb to a high shrine for a fleeting BLESSING — a temporary boon." },
+  ]},
+
+  // ---- Limbo → Purgatory ----
+  { x: 10440, w: 150, once: true, beatrice: 3, lines: [
+    { s: 'beatrice', t: "Not here, beloved. My light is kept higher — upon the Mountain." },
+    { s: 'dante', t: "Then I climb. Through fire, through Death itself if I must." },
+  ]},
+  { x: 10900, w: 190, once: true, lines: [
+    { s: 'dante', t: "Purgatory. The drowned mountain of the seven cornices..." },
+    { s: 'dante', t: "Sinners rain from the sky, and the Tower of Circles burns behind it all." },
+  ]},
+  { x: 13000, w: 160, once: true, beatrice: 4, lines: [
+    { s: 'beatrice', t: "The Pale Reaper guards the summit road. He is patient. He always wins." },
+    { s: 'dante', t: "Not today. Today he meets a man who refuses to die." },
+  ]},
+  { x: 14960, w: 200, once: true, lines: [
+    { s: 'voice', t: "ALL THAT LIVES, I HARVEST. ALL THAT DIES, I KEEP." },
+    { s: 'voice', t: "YOU ARE EARLY, PILGRIM. BUT I AM NEVER LATE." },
+  ]},
 ];
 
-const FINAL_SCENE_X = 10380;
+const FINAL_SCENE_X = 16400;
 
 // ---------- zone palettes ----------
 const PALETTES = {
@@ -193,6 +280,14 @@ const PALETTES = {
     terrain: '#46505c', terrainTop: '#6e7a86', terrainEdge: '#272d36',
     ambient: '#cfd8e2', fogA: 0.16,
   },
+  purgatory: {
+    skyTop: '#3a3850', skyMid: '#9a7866', skyBot: '#f2cc7c',
+    moon: '#fff2c8', moonGlow: '#e6ac52',
+    cloud1: '#7a6a72', cloud2: '#b09078',
+    far: '#5a4a52', mid: '#46383e',
+    terrain: '#574638', terrainTop: '#8c7458', terrainEdge: '#2e221a',
+    ambient: '#ffd884', fogA: 0.13,
+  },
 };
 
 // palette key stops along x (camera center)
@@ -204,7 +299,9 @@ const PAL_STOPS = [
   { x: 6300,  p: 'gates' },
   { x: 7800,  p: 'gates' },
   { x: 8600,  p: 'limbo' },
-  { x: 99999, p: 'limbo' },
+  { x: 10300, p: 'limbo' },
+  { x: 11300, p: 'purgatory' },
+  { x: 99999, p: 'purgatory' },
 ];
 
 const PAL_FIELDS = ['skyTop','skyMid','skyBot','moon','moonGlow','cloud1','cloud2','far','mid','terrain','terrainTop','terrainEdge','ambient'];
@@ -228,5 +325,6 @@ function musicZoneAt(x) {
   if (x < 2560) return 'village';
   if (x < 5700) return 'descent';
   if (x < 7900) return 'gates';
-  return 'limbo';
+  if (x < 10700) return 'limbo';
+  return 'limbo'; // purgatory shares the limbo theme bed (boss music handled separately)
 }
