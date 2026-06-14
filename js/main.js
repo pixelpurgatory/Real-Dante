@@ -27,6 +27,7 @@ const Game = {
     BG.init();
     Vignette.init();
     TouchUI.init();
+    Newsletter.init();
     this.resetWorld(true);
   },
 
@@ -87,6 +88,8 @@ const Game = {
     // set forward checkpoint automatically
     this.respawn = { x: CHECKPOINTS[3].x, y: CHECKPOINTS[3].y };
     this.activeCheckpoint = 3;
+    // newsletter popup after the first boss is defeated
+    Newsletter.maybeShow('boss-win');
   },
 
   respawnPlayer() {
@@ -96,6 +99,8 @@ const Game = {
     this.player.x = this.respawn.x;
     this.player.y = this.respawn.y;
     this.player.lastSafe = { x: this.respawn.x, y: this.respawn.y };
+    this._wasDead = false;
+    this.pendingNewsletter = false;
     this.respawnFade = 0.9;
     if (!keepBossDead) AudioSys.setZone(musicZoneAt(this.player.x));
   },
@@ -117,6 +122,9 @@ const Game = {
   update(dt) {
     this.time += dt;
     AudioSys.update();
+
+    // a modal (newsletter popup) is open — freeze the game behind it
+    if (this.modalOpen) return;
 
     if (Input.muteP()) AudioSys.toggleMute();
 
@@ -164,8 +172,20 @@ const Game = {
     // player
     pl.update(dt);
 
+    // note a death that happened during the boss fight (newsletter trigger)
+    if (pl.dead && !this._wasDead) {
+      this._wasDead = true;
+      if (this.boss && this.boss.active && !this.boss.dead) this.pendingNewsletter = true;
+    }
+    if (!pl.dead) this._wasDead = false;
+
     // death & respawn
     if (pl.dead) {
+      // offer the newsletter after dying to the boss, before respawning
+      if (this.pendingNewsletter && pl.deathT > 1.2) {
+        this.pendingNewsletter = false;
+        Newsletter.maybeShow('boss-death');
+      }
       if (pl.deathT > 2.1) this.respawnPlayer();
       Particles.update(dt);
       Dialogue.update(dt);

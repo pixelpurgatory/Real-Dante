@@ -33,10 +33,86 @@
     cursor: crosshair;
     touch-action: none;
   }
+
+  /* ---- newsletter popup ---- */
+  #nl-overlay {
+    position: fixed; inset: 0;
+    display: none;
+    align-items: center; justify-content: center;
+    background: rgba(6, 3, 12, 0.74);
+    z-index: 50;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    -webkit-user-select: none; user-select: none;
+  }
+  #nl-overlay.show { display: flex; }
+  #nl-card {
+    width: min(92vw, 430px);
+    box-sizing: border-box;
+    background: linear-gradient(160deg, #241a3e 0%, #1a1230 100%);
+    border: 1.5px solid #8a6a3a;
+    border-radius: 12px;
+    box-shadow: 0 0 40px rgba(255, 110, 50, 0.18), 0 10px 40px rgba(0,0,0,0.6);
+    padding: 22px 22px 18px;
+    color: #e8e0f4;
+    text-align: center;
+    position: relative;
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+  #nl-close {
+    position: absolute; top: 8px; right: 12px;
+    background: none; border: none; color: #9a8cb8;
+    font-size: 22px; line-height: 1; cursor: pointer;
+  }
+  #nl-title {
+    margin: 2px 0 6px;
+    font-size: 22px; letter-spacing: 1px;
+    color: #f4d8b0;
+  }
+  #nl-sub { margin: 0 0 16px; font-size: 13.5px; color: #c8b8e0; font-style: italic; line-height: 1.45; }
+  #nl-email {
+    width: 100%; box-sizing: border-box;
+    padding: 12px 12px; margin-bottom: 10px;
+    background: #100a1e; border: 1px solid #5a4d82; border-radius: 7px;
+    color: #f4eeff; font-size: 16px; font-family: inherit;
+    outline: none;
+  }
+  #nl-email:focus { border-color: #cfa850; }
+  #nl-submit {
+    width: 100%; padding: 12px; cursor: pointer;
+    background: linear-gradient(180deg, #8a3a44, #6a1e2c);
+    border: 1px solid #c46a4a; border-radius: 7px;
+    color: #ffe9d8; font-size: 16px; font-family: inherit; letter-spacing: 0.5px;
+  }
+  #nl-submit:active { transform: translateY(1px); }
+  #nl-submit:disabled { opacity: 0.6; cursor: default; }
+  #nl-later {
+    display: inline-block; margin-top: 12px;
+    background: none; border: none; cursor: pointer;
+    color: #8a7ca8; font-size: 12.5px; text-decoration: underline; font-family: inherit;
+  }
+  #nl-status { min-height: 18px; margin-top: 10px; font-size: 13px; }
+  #nl-status.err { color: #ff8a7a; }
+  #nl-status.ok { color: #9adca0; }
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="game" width="960" height="540"></canvas></div>
+
+<div id="nl-overlay" role="dialog" aria-modal="true" aria-labelledby="nl-title">
+  <div id="nl-card">
+    <button id="nl-close" aria-label="Close">&times;</button>
+    <h2 id="nl-title">THE DESCENT CONTINUES</h2>
+    <p id="nl-sub">Asterion has fallen, but eight circles remain. Leave your email to hear when the next ones open — plus secrets and updates.</p>
+    <form id="nl-form" novalidate>
+      <input id="nl-email" type="email" inputmode="email" autocomplete="email"
+             placeholder="your@email.com" aria-label="Email address" />
+      <button id="nl-submit" type="submit">Subscribe</button>
+    </form>
+    <div id="nl-status" aria-live="polite"></div>
+    <button id="nl-later" type="button">Maybe later</button>
+  </div>
+</div>
+
 <script src="js/core.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/level.js"></script>
@@ -45,6 +121,7 @@
 <script src="js/boss.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/touch.js"></script>
+<script src="js/newsletter.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

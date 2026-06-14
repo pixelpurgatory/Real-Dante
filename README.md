@@ -84,11 +84,30 @@ test/sim.js       headless harness: crash + boss + ending regression
 test/navbot.js    headless navigation bot proving the level is traversable
 ```
 
-## Tests
+## Newsletter signup
 
+After the first boss is defeated (or after dying to it), a themed popup invites
+the player to subscribe. Every signup is recorded in the browser's
+`localStorage` (key `dante_newsletter_subs`) as a built-in store / offline
+fallback.
+
+GitHub Pages is static hosting, so there is no server-side database. To collect
+emails **centrally** for free, open `js/newsletter.js` and set one of:
+
+- `NEWSLETTER.web3formsKey` — a free access key from https://web3forms.com
+  (safe to commit; it's a public form key). Signups land in your Web3Forms
+  dashboard, which acts as the database.
+- `NEWSLETTER.endpoint` — any URL that accepts a JSON `{email}` POST (Formspree,
+  a Cloudflare Worker + D1/KV, a Google Apps Script web app, etc.).
+
+Until one is set, signups are stored locally only.
+
+## Tests
 The game logic is exercised headlessly with stubbed browser APIs:
 
 ```
-node test/sim.js          # no-crash run, boss fight, ending, restart
+node test/sim.js            # no-crash run, boss fight, ending, restart
 node test/navbot.js --pure  # navigation bot reaches the boss (geometry is completable)
+node test/mobile.js         # orientation / fullscreen-fill / touch layout
+node test/newsletter.js     # signup validation, store, in-game trigger, live POST
 ```

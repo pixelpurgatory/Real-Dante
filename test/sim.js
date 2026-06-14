@@ -65,7 +65,7 @@ vm.createContext(sandbox);
 // load files in index.html order. Concatenate so top-level `const`s share
 // one lexical scope (as separate <script> tags do in a browser), then export
 // the globals we need for driving the sim.
-const files = ['core.js','audio.js','level.js','background.js','actors.js','boss.js','ui.js','touch.js','main.js'];
+const files = ['core.js','audio.js','level.js','background.js','actors.js','boss.js','ui.js','touch.js','newsletter.js','main.js'];
 let bundle = '';
 for (const f of files) bundle += '\n//=== ' + f + ' ===\n' + fs.readFileSync('js/' + f, 'utf8');
 bundle += '\n;globalThis.Game=Game;globalThis.Input=Input;globalThis.Particles=Particles;globalThis.FINAL_SCENE_X=FINAL_SCENE_X;';
