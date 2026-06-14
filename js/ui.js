@@ -307,7 +307,7 @@ const Screens = {
     ctx.fillText('— The Descent —', VW / 2, 236);
     ctx.font = '15px Georgia';
     ctx.fillStyle = `rgba(244,236,216,${0.55 + Math.sin(time * 3) * 0.35})`;
-    ctx.fillText('PRESS  ENTER', VW / 2, 330);
+    ctx.fillText(TouchUI.active ? 'TAP  TO  BEGIN' : 'PRESS  ENTER  ·  OR  TAP', VW / 2, 330);
     ctx.font = '12px Georgia';
     ctx.fillStyle = '#9a8cb8';
     ctx.fillText('A/D move · SPACE jump · J or CLICK strike · SHIFT dash · S+strike (air) pogo · F focus/heal · P pause · M mute', VW / 2, 470);
@@ -356,7 +356,7 @@ const Screens = {
     const mm = Math.floor(stats.time / 60), ss = Math.floor(stats.time % 60);
     ctx.fillText(`Time ${mm}:${String(ss).padStart(2, '0')}   ·   Deaths ${stats.deaths}   ·   Shades returned to rest ${stats.kills}`, VW / 2, 330);
     ctx.fillStyle = `rgba(244,236,216,${0.5 + Math.sin(time * 3) * 0.3})`;
-    ctx.fillText('PRESS  R  TO  DESCEND  AGAIN', VW / 2, 380);
+    ctx.fillText(TouchUI.active ? 'TAP  TO  DESCEND  AGAIN' : 'PRESS  R  ·  OR  TAP  TO  DESCEND  AGAIN', VW / 2, 380);
     ctx.restore();
   },
 

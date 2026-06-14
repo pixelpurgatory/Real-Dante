@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>DANTE: The Descent</title>
 <style>
   html, body {
@@ -10,7 +12,10 @@
     background: #0a0712;
     height: 100%;
     overflow: hidden;
+    overscroll-behavior: none;
     font-family: Georgia, 'Times New Roman', serif;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
   #wrap {
     position: fixed; inset: 0;
@@ -21,6 +26,7 @@
     image-rendering: crisp-edges;
     background: #0a0712;
     cursor: crosshair;
+    touch-action: none;
   }
 </style>
 </head>
@@ -33,6 +39,7 @@
 <script src="js/actors.js"></script>
 <script src="js/boss.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/touch.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

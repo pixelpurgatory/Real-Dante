@@ -29,6 +29,15 @@ no server required. Click or press a key once to enable sound.
 | Pause             | `P` / `Esc`                             |
 | Mute              | `M`                                     |
 
+### Mobile (phone / tablet)
+
+Works in the mobile browser too. On-screen touch controls appear automatically
+the first time you touch the screen (desktop stays mouse + keyboard, untouched):
+a movement pad on the left and Jump / Strike / Dash / Heal buttons on the right,
+plus a pause button. Up/Down on the pad aim the up- and down-strikes. Hold the
+phone in **landscape** — a prompt asks you to rotate if you're in portrait. Tap
+anywhere to start or to descend again.
+
 ## Combat depth
 
 - **SOUL economy** — landing hits fills the orb (top-left); hold `F` to spend it and mend
