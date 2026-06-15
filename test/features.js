@@ -93,11 +93,15 @@ for(let i=0;i<240 && (Game.deathBoss.state==='intro'||Game.deathBoss.state==='va
   const hp0=Game.deathBoss.hp; Game.deathBoss.takeHit(1,1); ok(Game.deathBoss.hp<hp0,'Death takes damage from melee');
 }
 
+console.log('--- Death boss base HP (-40%) ---');
+Game.bossDeaths=0; Game.deathBossDeaths=0; Game.bossDefeated=false; Game.deathDefeated=false; Game.resetWorld(false);
+ok(Game.deathBoss.maxHp===26,'Death base HP reduced ~40% (44 -> 26)');
+
 console.log('--- boss HP mercy after 10 deaths ---');
 Game.bossDeaths=10; Game.deathBossDeaths=10; Game.bossDefeated=false; Game.deathDefeated=false;
 Game.resetWorld(false);
 ok(Game.boss.maxHp===17,'Asterion HP halved after 10 deaths (maxHp='+Game.boss.maxHp+')');
-ok(Game.deathBoss.maxHp===22,'Death HP halved after 10 deaths (maxHp='+Game.deathBoss.maxHp+')');
+ok(Game.deathBoss.maxHp===13,'Death HP halved after 10 deaths (maxHp='+Game.deathBoss.maxHp+')');
 Game.bossDeaths=0; Game.deathBossDeaths=0;
 
 console.log('--- Death boss activates + dies (incl. phase 3) ---');

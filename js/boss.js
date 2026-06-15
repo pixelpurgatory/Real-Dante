@@ -758,7 +758,7 @@ function makeDeath() {
     x: (DEATH_ARENA_L + DEATH_ARENA_R) / 2 - 34, y: DEATH_FLOOR - 158,
     w: 68, h: 150,
     vx: 0, vy: 0, facing: -1, hoverY: DEATH_FLOOR - 158, // floats low enough to hit
-    hp: 44, maxHp: 44, alpha: 1,
+    hp: 26, maxHp: 26, alpha: 1,
     state: 'dormant', t: 0, animT: 0, flash: 0,
     active: false, dead: false, finished: false, phase2: false, phase3: false,
     nameT: 0, attackBox: null, scytheAng: 0, gore: 'soul', lastAtk: '',
@@ -832,12 +832,40 @@ function makeDeath() {
           if (this.t < 0.3) break;
           const d = Math.abs(px - cx);
           const r = Math.random();
-          if (this.phase3 && r < 0.4) { this.state = 'tele_spin'; this.t = 0; }      // phase-3 reaping spin
-          else if (this.phase3 && r < 0.6) { this.state = 'tele_nova'; this.t = 0; } // phase-3 soul nova
-          else if (d < 150 && r < 0.6) { this.state = 'tele_scythe'; this.t = 0; }
+          if (this.phase2 && r < 0.26) { this.state = 'tele_spin'; this.t = 0; }       // whirling AoE (from phase 2)
+          else if (this.phase3 && r < 0.42) { this.state = 'tele_nova'; this.t = 0; }  // phase-3 soul nova
+          else if (d > 200 && r < 0.62) { this.state = 'tele_glide'; this.t = 0; }      // gliding AoE charge across the arena
+          else if (d < 160 && r < 0.6) { this.state = 'tele_scythe'; this.t = 0; }
           else if (r < 0.5) { this.state = 'tele_volley'; this.t = 0; }
           else if (r < 0.78) { this.state = 'vanish'; this.t = 0; this.lastAtk = 'tp'; }
           else { this.state = 'summon'; this.t = 0; }
+          break;
+        }
+
+        case 'tele_glide':
+          // wind up a Minotaur-like reaping glide; eyes flare, mist gathers
+          this.y += (this.hoverY - this.y) * dt * 2;
+          this.facing = px > cx ? 1 : -1;
+          if (Math.random() < 0.7) Particles.spawn(cx - this.facing * 30, this.y + rand(20, 120), { vx: -this.facing * rand(40, 110), vy: rand(-20, 10), life: 0.4, size: 3, color: '#bfe0ff', glow: true });
+          if (this.t > this.tel(0.7)) {
+            this.state = 'glide'; this.t = 0; this.lastAtk = 'glide';
+            this._glideStartX = this.x;
+            this._glideMax = (DEATH_ARENA_R - DEATH_ARENA_L) * 0.5; // ~half the arena
+            this.vx = this.facing * 460;
+            AudioSys.sfx('roar');
+          }
+          break;
+        case 'glide': {
+          // reaping AoE wraps Death as he glides; trailing soul-fire
+          this.x += this.vx * dt;
+          this.scytheAng = this.t * 26;
+          this.attackBox = { x: this.x - 30, y: this.y + 8, w: this.w + 60, h: this.h - 14, dmg: 1, kb: 360 };
+          if (Math.random() < 0.9) Particles.spawn(cx + rand(-this.w / 2, this.w / 2), this.y + rand(10, this.h), { vx: -this.vx * 0.12, vy: rand(-30, 10), life: 0.4, size: 3.5, color: Math.random() < 0.5 ? '#bfe0ff' : '#dff0ff', glow: true });
+          const travelled = Math.abs(this.x - this._glideStartX);
+          if (this.hitWall || travelled > this._glideMax || this.x < DEATH_ARENA_L + 30 || this.x + this.w > DEATH_ARENA_R - 30) {
+            this.vx = 0; this.state = 'choose'; this.t = 0;
+            if (this.hitWall) { Game.shake(7, 0.4); AudioSys.sfx('slam'); }
+          }
           break;
         }
 
@@ -847,12 +875,12 @@ function makeDeath() {
           if (this.t > this.tel(0.55)) { this.state = 'spin'; this.t = 0; AudioSys.sfx('roar'); }
           break;
         case 'spin': {
-          // whirling scythe — a wide AoE around Death as he drifts at the player
+          // whirling scythe — a wide AoE all around Death as he drifts at the player
           this.scytheAng = this.t * 22;
           this.x += (px > cx ? 1 : -1) * 90 * dt;
-          this.attackBox = { x: this.x - 36, y: this.y + 6, w: this.w + 72, h: this.h - 12, dmg: 1, kb: 300 };
-          if (Math.random() < 0.8) Particles.spawn(cx + Math.cos(this.scytheAng) * 70, this.y + 70 + Math.sin(this.scytheAng) * 50, { vx: 0, vy: 0, life: 0.25, size: 3, color: '#dff0ff', glow: true });
-          if (this.t > this.tel(1.1)) { this.state = 'choose'; this.t = 0; }
+          this.attackBox = { x: this.x - 40, y: this.y + 6, w: this.w + 80, h: this.h - 12, dmg: 1, kb: 320 };
+          if (Math.random() < 0.85) Particles.spawn(cx + Math.cos(this.scytheAng) * 76, this.y + 70 + Math.sin(this.scytheAng) * 54, { vx: 0, vy: 0, life: 0.25, size: 3, color: '#dff0ff', glow: true });
+          if (this.t > this.tel(1.2)) { this.state = 'choose'; this.t = 0; }
           break;
         }
 
@@ -872,21 +900,22 @@ function makeDeath() {
           break;
 
         case 'tele_scythe':
+          // 40% slower melee: longer, more readable wind-up
           this.y += (this.hoverY - this.y) * dt * 2;
-          if (this.t > this.tel(0.5)) {
+          if (this.t > this.tel(0.7)) {
             this.state = 'scythe'; this.t = 0;
             AudioSys.sfx('thrust');
             Game.addFx('bigslash', cx + this.facing * 70, this.y + this.h * 0.5, { flip: this.facing, rot: 0 });
           }
           break;
         case 'scythe': {
-          // sweeping arc in front + a small forward glide
-          this.x += this.facing * 130 * dt;
-          if (this.t < 0.3) {
+          // a slower sweeping arc with a small forward glide (40% slower than before)
+          this.x += this.facing * 80 * dt;
+          if (this.t < 0.42) {
             const bx = this.facing > 0 ? this.x + this.w - 16 : this.x - 104;
             this.attackBox = { x: bx, y: this.y + 20, w: 120, h: this.h - 30, dmg: 1, kb: 320 };
           }
-          if (this.t > this.tel(0.7)) { this.state = 'choose'; this.t = 0; }
+          if (this.t > this.tel(0.98)) { this.state = 'choose'; this.t = 0; }
           break;
         }
 
