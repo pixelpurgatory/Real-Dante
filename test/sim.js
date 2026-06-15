@@ -182,26 +182,21 @@ try {
   console.log('lilith phase2', lPhase2, 'defeated', Game.lilithDefeated, 'finished', Game.lilithBoss.finished);
   if (!Game.lilithDefeated) errors.push('LILITH never died under sustained damage');
 
-  // ---- scripted ENDING ----
+  // ---- "TO BE CONTINUED" after Lilith (game does not finish) ----
   Game.enemies = []; Game.sinners = []; Game.fruits = [];
-  sandbox.Game.beatrice && (sandbox.Game.beatrice.idx = 7);
-  Game.player.x = sandbox.FINAL_SCENE_X + 20; Game.player.y = 410;
-  Game.player.dead = false; Game.player.hp = 5;
-  Game.player.lastSafe = { x: Game.player.x, y: Game.player.y };
-  let endReached = false, endStarted = false;
-  for (let i = 0; i < 5000; i++) {
-    if (Game.endStarted) endStarted = true;
+  let continued = false;
+  for (let i = 0; i < 6000; i++) {       // let her last words play out, then the card
     Game.update(STEP); Game.draw(STEP); Input.endFrame();
-    if (Game.state === 'victory') { endReached = true; break; }
+    if (Game.state === 'continued') { continued = true; break; }
   }
-  console.log('ending startEnding fired:', endStarted, 'reached victory:', endReached, 'state', Game.state);
-  if (!endReached) errors.push('ENDING never triggered victory after both bosses + final zone');
+  console.log('reached TO-BE-CONTINUED:', continued, 'state', Game.state);
+  if (!continued) errors.push('Game never reached the TO BE CONTINUED screen after Lilith');
 
-  // ---- restart from victory ----
-  if (Game.state === 'victory') {
+  // ---- restart from the continue screen ----
+  if (Game.state === 'continued') {
     Game.victoryT = 3;
     press('KeyR'); Game.update(STEP); Game.draw(STEP); Input.endFrame();
-    console.log('after R from victory, state:', Game.state);
+    console.log('after R from continued, state:', Game.state);
   }
 
   if (errors.length) {

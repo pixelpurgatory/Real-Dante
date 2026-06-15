@@ -12,7 +12,7 @@ const VH = 540;                    // logical view height (fixed)
 const VW_MIN = 760, VW_MAX = 1366; // clamp for the aspect-matched landscape width
 const VW_BAKE = VW_MAX;            // background layers are baked this wide
 const RENDER_CAP = 1600;           // max internal canvas dimension (perf budget)
-const WORLD_W = 23000;             // total world width (village → ... → Lust)
+const WORLD_W = 31400;             // total world width (village → ... → Lust, 3x path)
 const GRAV = 1500;
 const KILL_Y = 720;                // fell into the abyss
 

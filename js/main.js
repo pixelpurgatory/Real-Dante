@@ -180,9 +180,12 @@ const Game = {
     this.arenaWalls = [];
     this.lilithCorrupted = false;
     this.fruits = [];
+    this.cinematic = true;
+    this.toContinue = true;          // → "TO BE CONTINUED" once her last words finish
     AudioSys.setZone(musicZoneAt(this.player.x));
     Dialogue.say([
-      { s: 'dante', t: "The storm... it's gone quiet. For the first time, it's quiet." },
+      { s: 'dante', t: "The storm... it's gone quiet. For the first time, it is quiet." },
+      { s: 'dante', t: "Two circles deeper, Beatrice. And something down there is still laughing. I am coming." },
     ]);
   },
 
@@ -276,9 +279,9 @@ const Game = {
       return;
     }
 
-    if (this.state === 'victory') {
+    if (this.state === 'victory' || this.state === 'continued') {
       this.victoryT += dt;
-      if (this.victoryT > 2 && Input.restartP()) {
+      if (this.victoryT > 2.5 && Input.restartP()) {
         this.state = 'title';
         this.titleCam = 0; this.titleDir = 1;
         this.resetWorld(true);
@@ -498,6 +501,12 @@ const Game = {
     if (this.cineUntilDialogue && !Dialogue.busy() && !this.modalOpen) {
       this.cineUntilDialogue = false; this.cinematic = false;
     }
+    // after Lilith's last words, roll the "TO BE CONTINUED" card
+    if (this.toContinue && !Dialogue.busy()) {
+      this.toContinue = false;
+      this.state = 'continued';
+      this.victoryT = 0;
+    }
 
     // checkpoints
     for (let i = 0; i < CHECKPOINTS.length; i++) {
@@ -622,7 +631,7 @@ const Game = {
       ctx.fill();
     }
 
-    if (this.state === 'play' || this.state === 'victory') {
+    if (this.state === 'play' || this.state === 'victory' || this.state === 'continued') {
       this.beatrice.draw(cx, cy, this.time);
       for (const pk of this.pickups) pk.draw(cx, cy, this.time);
       for (const n of this.npcs) if (!n.dead) this.drawBig(n, cx, cy);
@@ -689,6 +698,9 @@ const Game = {
 
     if (this.state === 'victory') {
       Screens.drawVictory(this.victoryT, this.stats, this.time);
+    }
+    if (this.state === 'continued') {
+      Screens.drawContinued(this.victoryT, this.stats, this.time);
     }
   },
 };
