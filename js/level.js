@@ -45,21 +45,21 @@ const PLATFORMS = [
   { x: 9520, y: 426, w: 1280, h: 294, type: 'solid' },  // final shore (Limbo)
 
   // ---- buff puzzle platforms (small optional climbs to a bonus orb) ----
-  { x: 1120, y: 286, w: 90,  h: 10, type: 'oneway', puzzle: 1 },  // village (above balconies)
-  { x: 1330, y: 250, w: 90,  h: 10, type: 'oneway', puzzle: 1 },
-  { x: 4980, y: 360, w: 90,  h: 12, type: 'solid',  puzzle: 1 },  // descent (D5 area)
-  { x: 5160, y: 312, w: 90,  h: 12, type: 'solid',  puzzle: 1 },
-  { x: 6160, y: 360, w: 90,  h: 12, type: 'solid',  puzzle: 1 },  // gates (before the arena)
-  { x: 6360, y: 312, w: 90,  h: 12, type: 'solid',  puzzle: 1 },
-  { x: 8760, y: 300, w: 110, h: 14, type: 'solid',  puzzle: 1 },  // limbo (atop the isles)
+  { x: 1105, y: 286, w: 120, h: 24, type: 'oneway', puzzle: 1 },  // village (above balconies)
+  { x: 1315, y: 250, w: 120, h: 24, type: 'oneway', puzzle: 1 },
+  { x: 4965, y: 360, w: 120, h: 24, type: 'solid', puzzle: 1 },  // descent (D5 area)
+  { x: 5145, y: 312, w: 120, h: 24, type: 'solid', puzzle: 1 },
+  { x: 6145, y: 360, w: 120, h: 24, type: 'solid', puzzle: 1 },  // gates (before the arena)
+  { x: 6345, y: 312, w: 120, h: 24, type: 'solid', puzzle: 1 },
+  { x: 8730, y: 300, w: 170, h: 24, type: 'solid', puzzle: 1 },  // limbo (atop the isles)
 
   // ============================================================
   // PURGATORY — ascending the mountain of the seven cornices
   // ============================================================
   { x: 10800, y: 442, w: 720, h: 278, type: 'solid' },   // PG1  10800-11520
   { x: 11640, y: 442, w: 440, h: 278, type: 'solid' },   // PG2  11640-12080 (gap 120, flat)
-  { x: 11880, y: 356, w: 100, h: 12,  type: 'solid',  puzzle: 2 },  // purgatory puzzle climb
-  { x: 12060, y: 300, w: 100, h: 12,  type: 'solid',  puzzle: 2 },
+  { x: 11850, y: 356, w: 160, h: 24, type: 'solid', puzzle: 2 },  // purgatory puzzle climb
+  { x: 12030, y: 300, w: 160, h: 24, type: 'solid', puzzle: 2 },
   { x: 12200, y: 440, w: 560, h: 280, type: 'solid' },   // PG3  12200-12760 (gap 120)
   { x: 12900, y: 440, w: 490, h: 280, type: 'solid' },   // PG4  12900-13390 (gap 140)
   { x: 13180, y: 356, w: 110, h: 12,  type: 'oneway' },  // high ledge (bowman perch)

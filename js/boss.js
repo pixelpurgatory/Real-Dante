@@ -59,6 +59,7 @@ function makeMinotaur() {
         this.phase2 = true;
         this.state = 'enrage'; this.t = 0;
         this.attackBox = null;
+        if (Game.bossLine) Game.bossLine('asterion', "NO MORE GAMES, LITTLE KING. THE LABYRINTH ENDS IN BLOOD.");
         AudioSys.sfx('roar');
         Game.shake(6, 0.6);
       }
@@ -309,12 +310,13 @@ function makeMinotaur() {
         moveAndCollide(this, dt);
       }
 
-      // contact + attack damage to player
+      // contact + attack damage to player (stomping his back is safe + bounces)
       if (!this.dead && this.active && this.state !== 'intro') {
         if (this.attackBox && rectsOverlap(this.attackBox, pl)) {
           pl.hurt(this.attackBox.dmg, this.x + this.w / 2);
         } else if (rectsOverlap(this.rect(), pl)) {
-          pl.hurt(1, this.x + this.w / 2);
+          if (isStomp(pl, this.rect())) { pl.vy = -380; pl.canDash = true; }
+          else pl.hurt(1, this.x + this.w / 2);
         }
       }
     },
@@ -515,12 +517,12 @@ function makeWave(x, floorY, dir) {
 // ============================================================
 function makeDeath() {
   return {
-    x: (DEATH_ARENA_L + DEATH_ARENA_R) / 2 - 34, y: DEATH_FLOOR - 170,
+    x: (DEATH_ARENA_L + DEATH_ARENA_R) / 2 - 34, y: DEATH_FLOOR - 158,
     w: 68, h: 150,
-    vx: 0, vy: 0, facing: -1, hoverY: DEATH_FLOOR - 188,
+    vx: 0, vy: 0, facing: -1, hoverY: DEATH_FLOOR - 158, // floats low enough to hit
     hp: 44, maxHp: 44, alpha: 1,
     state: 'dormant', t: 0, animT: 0, flash: 0,
-    active: false, dead: false, finished: false, phase2: false,
+    active: false, dead: false, finished: false, phase2: false, phase3: false,
     nameT: 0, attackBox: null, scytheAng: 0, gore: 'soul', lastAtk: '',
     barName: 'DEATH, THE PALE REAPER',
     title: 'D E A T H', subtitle: 'Who keeps all that the world lets fall',
@@ -530,6 +532,7 @@ function makeDeath() {
     start() {
       if (this.state !== 'dormant') return;
       this.state = 'intro'; this.t = 0; this.active = true; this.nameT = 3.4;
+      if (Game.bossLine) Game.bossLine('death', "You are early, pilgrim. They always are. Come — let me make you punctual.");
       AudioSys.sfx('roar'); AudioSys.setZone('boss'); Game.shake(8, 0.9);
       Game.arenaWalls = [
         { x: DEATH_ARENA_L - 40, y: 60, w: 40, h: 400, type: 'solid' },
@@ -538,25 +541,31 @@ function makeDeath() {
       AudioSys.sfx('gate');
     },
     reset() {
-      this.x = (DEATH_ARENA_L + DEATH_ARENA_R) / 2 - 34; this.y = DEATH_FLOOR - 170;
+      this.x = (DEATH_ARENA_L + DEATH_ARENA_R) / 2 - 34; this.y = DEATH_FLOOR - 158;
       this.vx = 0; this.vy = 0; this.alpha = 1;
       this.hp = this.maxHp; this.state = 'dormant'; this.t = 0;
-      this.active = false; this.dead = false; this.finished = false; this.phase2 = false;
+      this.active = false; this.dead = false; this.finished = false; this.phase2 = false; this.phase3 = false;
       this.attackBox = null; Game.arenaWalls = [];
     },
     takeHit(dmg, dir) {
       if (this.dead || !this.active || this.state === 'intro' || this.state === 'vanish' || this.alpha < 0.4) return false;
       this.hp -= dmg; this.flash = 0.1;
       Gore.hit(this.x + this.w / 2, this.y + this.h / 2, dir, 'soul', dmg > 1);
-      if (!this.phase2 && this.hp <= this.maxHp / 2) {
+      if (!this.phase2 && this.hp <= this.maxHp * 0.5) {
         this.phase2 = true; this.state = 'enrage'; this.t = 0; this.attackBox = null;
+        if (Game.bossLine) Game.bossLine('death', "You are stubborn, little flame. Good. Embers burn longest.");
         AudioSys.sfx('roar'); Game.shake(7, 0.7);
+      } else if (!this.phase3 && this.hp <= this.maxHp * 0.4) {
+        this.phase3 = true; this.state = 'enrage'; this.t = 0; this.attackBox = null;
+        if (Game.bossLine) Game.bossLine('death', "Then I stop playing the patient harvester.");
+        AudioSys.sfx('roar'); Game.shake(9, 0.9);
       }
       if (this.hp <= 0) this.die();
       return true;
     },
     die() {
       this.dead = true; this.state = 'dying'; this.t = 0; this.attackBox = null; this.vx = 0;
+      if (Game.bossLine) Game.bossLine('death', "Spared... for now. But no one cheats me twice. I will be there at the end of all your circles.");
       AudioSys.sfx('die'); Game.shake(10, 1.1); Game.freeze(0.3);
     },
     tel(v) { return this.phase2 ? v * 0.72 : v; },
@@ -585,12 +594,44 @@ function makeDeath() {
           if (this.t < 0.3) break;
           const d = Math.abs(px - cx);
           const r = Math.random();
-          if (d < 150 && r < 0.6) { this.state = 'tele_scythe'; this.t = 0; }
+          if (this.phase3 && r < 0.4) { this.state = 'tele_spin'; this.t = 0; }      // phase-3 reaping spin
+          else if (this.phase3 && r < 0.6) { this.state = 'tele_nova'; this.t = 0; } // phase-3 soul nova
+          else if (d < 150 && r < 0.6) { this.state = 'tele_scythe'; this.t = 0; }
           else if (r < 0.5) { this.state = 'tele_volley'; this.t = 0; }
           else if (r < 0.78) { this.state = 'vanish'; this.t = 0; this.lastAtk = 'tp'; }
           else { this.state = 'summon'; this.t = 0; }
           break;
         }
+
+        case 'tele_spin':
+          this.y += (this.hoverY - this.y) * dt * 2;
+          if (Math.random() < 0.6) Particles.spawn(cx + rand(-40, 40), this.y + rand(20, 120), { vx: 0, vy: rand(-30, -5), life: 0.4, size: 3, color: '#bfe0ff', glow: true });
+          if (this.t > this.tel(0.55)) { this.state = 'spin'; this.t = 0; AudioSys.sfx('roar'); }
+          break;
+        case 'spin': {
+          // whirling scythe — a wide AoE around Death as he drifts at the player
+          this.scytheAng = this.t * 22;
+          this.x += (px > cx ? 1 : -1) * 90 * dt;
+          this.attackBox = { x: this.x - 36, y: this.y + 6, w: this.w + 72, h: this.h - 12, dmg: 1, kb: 300 };
+          if (Math.random() < 0.8) Particles.spawn(cx + Math.cos(this.scytheAng) * 70, this.y + 70 + Math.sin(this.scytheAng) * 50, { vx: 0, vy: 0, life: 0.25, size: 3, color: '#dff0ff', glow: true });
+          if (this.t > this.tel(1.1)) { this.state = 'choose'; this.t = 0; }
+          break;
+        }
+
+        case 'tele_nova':
+          this.y += (this.hoverY - this.y) * dt * 2;
+          if (this.t > this.tel(0.6)) {
+            this.state = 'choose'; this.t = 0;
+            // radial burst of soul-bolts in all directions
+            const n = 12;
+            for (let i = 0; i < n; i++) {
+              const a = (i / n) * Math.PI * 2;
+              const sp = 175;
+              Game.shots.push(makeShot(cx, this.y + this.h * 0.5, Math.cos(a) * sp, Math.sin(a) * sp, 'soulbolt', 'enemy', 1));
+            }
+            AudioSys.sfx('shriek');
+          }
+          break;
 
         case 'tele_scythe':
           this.y += (this.hoverY - this.y) * dt * 2;
@@ -665,10 +706,9 @@ function makeDeath() {
           break;
       }
 
-      // contact + attack damage
+      // only his attacks hurt — bumping into his body is safe (per design)
       if (!this.dead && this.active && this.state !== 'intro' && this.alpha > 0.5) {
         if (this.attackBox && rectsOverlap(this.attackBox, pl)) pl.hurt(this.attackBox.dmg, this.x + this.w / 2);
-        else if (rectsOverlap(this.rect(), pl)) pl.hurt(1, this.x + this.w / 2);
       }
     },
 

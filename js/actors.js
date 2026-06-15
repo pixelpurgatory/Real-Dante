@@ -326,9 +326,9 @@ function makePlayer(x, y) {
         this.healing = false;
         AudioSys.sfx('swing');
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-        if (this.atkDir === 0) Game.addFx('slash', cx + this.facing * 26, cy - 2, { flip: this.facing, rot: 0, alt: this.combo });
-        else if (this.atkDir === 1) Game.addFx('slash', cx, cy - 30, { flip: this.facing, rot: -Math.PI / 2, alt: this.combo });
-        else Game.addFx('slash', cx, cy + 30, { flip: this.facing, rot: Math.PI / 2, alt: this.combo });
+        if (this.atkDir === 0) Game.addFx('slash', cx + this.facing * 46, cy - 2, { flip: this.facing, rot: 0, alt: this.combo });
+        else if (this.atkDir === 1) Game.addFx('slash', cx, cy - 52, { flip: this.facing, rot: -Math.PI / 2, alt: this.combo });
+        else Game.addFx('slash', cx, cy + 50, { flip: this.facing, rot: Math.PI / 2, alt: this.combo });
       }
 
       // active attack hitbox
@@ -439,12 +439,13 @@ function makePlayer(x, y) {
     },
 
     attackBox() {
+      // melee reach increased ~60% over the original greatsword arc
       const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-      if (this.atkDir === 1) return { x: cx - 26, y: this.y - 44, w: 52, h: 48 };
-      if (this.atkDir === 2) return { x: cx - 22, y: this.y + this.h - 4, w: 44, h: 46 };
+      if (this.atkDir === 1) return { x: cx - 30, y: this.y - 74, w: 60, h: 80 };
+      if (this.atkDir === 2) return { x: cx - 26, y: this.y + this.h - 4, w: 52, h: 74 };
       return this.facing > 0
-        ? { x: cx + 6, y: cy - 22, w: 54, h: 44 }
-        : { x: cx - 60, y: cy - 22, w: 54, h: 44 };
+        ? { x: cx + 6, y: cy - 26, w: 88, h: 52 }
+        : { x: cx - 94, y: cy - 26, w: 88, h: 52 };
     },
 
     draw(camX, camY, time) {

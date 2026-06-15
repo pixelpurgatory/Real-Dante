@@ -263,7 +263,7 @@ function drawFx(fx, camX, camY) {
   const sx = fx.x - camX, sy = fx.y - camY;
   if (fx.type === 'slash' || fx.type === 'bigslash') {
     const big = fx.type === 'bigslash';
-    const R = big ? 64 : 34;
+    const R = big ? 64 : 52;
     g.save();
     g.translate(sx, sy);
     g.rotate(fx.rot || 0);
@@ -387,6 +387,30 @@ const Screens = {
     ctx.fillStyle = `rgba(244,236,216,${0.5 + Math.sin(time * 3) * 0.3})`;
     ctx.fillText(TouchUI.active ? 'TAP  TO  DESCEND  AGAIN' : 'PRESS  R  ·  OR  TAP  TO  DESCEND  AGAIN', VW / 2, 380);
     ctx.restore();
+  },
+
+  drawAreaTitle(name, sub, t) {
+    // fade in/out over the 4.2s lifetime
+    const a = clamp(Math.min(t, 4.2 - t) * 1.3, 0, 1);
+    if (a <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#f4ecd8';
+    ctx.shadowColor = '#000'; ctx.shadowBlur = 12;
+    ctx.font = '36px Georgia';
+    ctx.fillText(name, VW / 2, VH * 0.36);
+    // underline flourish
+    ctx.shadowBlur = 0;
+    const w = ctx.measureText(name).width;
+    ctx.strokeStyle = `rgba(200,168,90,${a})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(VW / 2 - w / 2 - 10, VH * 0.36 + 12); ctx.lineTo(VW / 2 + w / 2 + 10, VH * 0.36 + 12); ctx.stroke();
+    ctx.font = 'italic 16px Georgia';
+    ctx.fillStyle = '#c8b8e0';
+    ctx.fillText(sub, VW / 2, VH * 0.36 + 36);
+    ctx.restore();
+    ctx.textAlign = 'left';
   },
 
   drawPause() {

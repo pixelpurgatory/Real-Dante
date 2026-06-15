@@ -9,9 +9,10 @@ sb.globalThis=sb;sb.global=sb;vm.createContext(sb);
 const files=['core.js','audio.js','level.js','background.js','actors.js','systems.js','boss.js','ui.js','touch.js','newsletter.js','main.js'];
 let b='';for(const f of files)b+='\n'+fs.readFileSync('js/'+f,'utf8');
 b+='\nglobalThis.Game=Game;globalThis.Input=Input;globalThis.Particles=Particles;globalThis.Dialogue=Dialogue;'
- +'globalThis.spawnEnemy=spawnEnemy;globalThis.makeNPC=makeNPC;globalThis.Gore=Gore;';
+ +'globalThis.spawnEnemy=spawnEnemy;globalThis.makeNPC=makeNPC;globalThis.Gore=Gore;'
+ +'globalThis.rectsOverlap=rectsOverlap;globalThis.isStomp=isStomp;';
 vm.runInContext(b,sb);
-const {Game,Input,Particles,Dialogue,spawnEnemy,makeNPC,Gore}=sb;
+const {Game,Input,Particles,Dialogue,spawnEnemy,makeNPC,Gore,rectsOverlap,isStomp}=sb;
 let fails=0; const ok=(c,m)=>{console.log((c?'  ok  ':'  FAIL')+'  '+m); if(!c)fails++;};
 Input.pressed['Enter']=true;Game.update(1/60);Input.endFrame();
 const pl=Game.player;
@@ -70,12 +71,41 @@ for(let d=1;d<=5;d++){ Game.respawnPlayer(); if(d===4) stillTakenAt4=Game.pickup
 ok(stillTakenAt4,'buffs stay used between death 1–4');
 ok(Game.pickups.every(p=>!p.taken),'all shrines respawn on the 5th death');
 
-console.log('--- Death boss activates + dies ---');
+console.log('--- combat tuning ---');
+{
+  const p = Game.player; p.atkDir = 0; p.facing = 1;
+  const hb = p.attackBox();
+  ok(hb.w >= 86, 'melee reach widened ~60% (forward box w='+hb.w+')');
+}
+ok(isStomp({vy:120,y:0,h:42},{y:38,h:40})===true,'isStomp true when descending onto a target top');
+ok(isStomp({vy:0,y:0,h:42},{y:38,h:40})===false,'isStomp false when not falling');
+
+console.log('--- Death boss is reachable by melee (hitbox fix) ---');
+Game.deathBoss.reset(); Game.deathBoss.start();
+// run past the intro into an attackable (visible, non-teleport) state
+for(let i=0;i<240 && (Game.deathBoss.state==='intro'||Game.deathBoss.state==='vanish'||Game.deathBoss.alpha<0.5);i++){Game.update(1/60);Input.endFrame();}
+{
+  const p=Game.player; p.x=Game.deathBoss.x+10; p.y=400; p.atkDir=0; p.facing=1;
+  const hb=p.attackBox();
+  ok(rectsOverlap(hb, Game.deathBoss.rect()),'grounded melee overlaps the Death boss body');
+  const hp0=Game.deathBoss.hp; Game.deathBoss.takeHit(1,1); ok(Game.deathBoss.hp<hp0,'Death takes damage from melee');
+}
+
+console.log('--- boss HP mercy after 10 deaths ---');
+Game.bossDeaths=10; Game.deathBossDeaths=10; Game.bossDefeated=false; Game.deathDefeated=false;
+Game.resetWorld(false);
+ok(Game.boss.maxHp===17,'Asterion HP halved after 10 deaths (maxHp='+Game.boss.maxHp+')');
+ok(Game.deathBoss.maxHp===22,'Death HP halved after 10 deaths (maxHp='+Game.deathBoss.maxHp+')');
+Game.bossDeaths=0; Game.deathBossDeaths=0;
+
+console.log('--- Death boss activates + dies (incl. phase 3) ---');
 Game.deathBoss.reset();
 Game.player.x=(15260+16640)/2; Game.player.y=400; Game.player.dead=false; Game.player.hp=5;
 for(let i=0;i<30;i++){Game.update(1/60);Input.endFrame();}
 ok(Game.deathBoss.active,'Death activates at the summit');
-for(let i=0;i<6000 && !Game.deathDefeated;i++){ if(Game.player.dead){Game.player.dead=false;Game.player.hp=5;} Game.player.invuln=1; if(i%8===0&&Game.deathBoss.active&&!Game.deathBoss.dead)Game.deathBoss.takeHit(1,1); Game.update(1/60);Input.endFrame(); }
+let dP3=false;
+for(let i=0;i<6000 && !Game.deathDefeated;i++){ if(Game.player.dead){Game.player.dead=false;Game.player.hp=5;} Game.player.invuln=1; if(i%8===0&&Game.deathBoss.active&&!Game.deathBoss.dead)Game.deathBoss.takeHit(1,1); if(Game.deathBoss.phase3)dP3=true; Game.update(1/60);Input.endFrame(); }
+ok(dP3,'Death reaches phase 3 (40% HP)');
 ok(Game.deathDefeated,'Death can be defeated');
 
 console.log(fails?('\nFEATURE TESTS: '+fails+' FAILURES'):'\nFEATURE TESTS: all passed');
