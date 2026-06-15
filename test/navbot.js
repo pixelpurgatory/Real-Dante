@@ -19,10 +19,10 @@ const sb={Math,Date,console,parseInt,parseFloat,isNaN,isFinite,Object,Array,Stri
 sb.globalThis=sb;sb.global=sb;vm.createContext(sb);
 const files=['core.js','audio.js','level.js','background.js','actors.js','systems.js','boss.js','ui.js','touch.js','newsletter.js','main.js'];
 let b='';for(const f of files)b+='\n'+fs.readFileSync('js/'+f,'utf8');
-b+='\nglobalThis.Game=Game;globalThis.Input=Input;globalThis.PLATFORMS=PLATFORMS;globalThis.HAZARDS=HAZARDS;globalThis.DEATH_ARENA_L=DEATH_ARENA_L;';
+b+='\nglobalThis.Game=Game;globalThis.Input=Input;globalThis.PLATFORMS=PLATFORMS;globalThis.HAZARDS=HAZARDS;globalThis.DEATH_ARENA_L=DEATH_ARENA_L;globalThis.LILITH_L=LILITH_L;';
 vm.runInContext(b,sb,{filename:'bundle.js'});
 const {Game,Input,PLATFORMS,HAZARDS}=sb;
-const DEATH_L=sb.DEATH_ARENA_L;
+const DEATH_L=sb.DEATH_ARENA_L, LILITH_L=sb.LILITH_L;
 
 const STEP=1/60;
 function press(c){Input.pressed[c]=true;}
@@ -31,7 +31,7 @@ function press(c){Input.pressed[c]=true;}
 function groundTopAt(x, yRef){
   let best=Infinity;
   for(const p of PLATFORMS){
-    if(p.x<-50||p.x>17000)continue;
+    if(p.x<-50||p.x>23000)continue;
     if(x>=p.x&&x<=p.x+p.w){
       if(p.y>=yRef-40 && p.y<best) best=p.y;
     }
@@ -48,7 +48,7 @@ press('Enter');Game.update(STEP);Input.endFrame();
 const PURE = process.argv.includes('--pure');
 if(PURE) Game.enemies=[]; // isolate geometry reachability
 
-let stuckX=0,stuckFrames=0,maxX=0,reachedBoss=false,reachedDeath=false,jumps=0;
+let stuckX=0,stuckFrames=0,maxX=0,reachedBoss=false,reachedDeath=false,reachedLilith=false,jumps=0;
 const MAXF=20000;
 let f=0;
 for(;f<MAXF;f++){
@@ -79,7 +79,7 @@ for(;f<MAXF;f++){
 
   // attack anything in front sometimes (skip in pure-traversal mode)
   if(!PURE && f%10===0) press('KeyJ');
-  if(PURE){ Game.enemies=[]; Game.sinners=[]; Game.shots=[]; }
+  if(PURE){ Game.enemies=[]; Game.sinners=[]; Game.shots=[]; Game.fruits=[]; Game.cinematic=false; Game.cineUntilDialogue=false; }
   // pogo if above spikes and falling
   if(!pl.onGround && pl.vy>0 && hazardAt(pl.x+pl.w/2)==='spikes'){ Input.keys.KeyS=true; press('KeyJ'); }
 
@@ -96,12 +96,20 @@ for(;f<MAXF;f++){
       pl.x=10820; pl.y=400; pl.vx=0; pl.vy=0;
       pl.lastSafe={x:10820,y:400}; maxX=10820; stuckFrames=0;
     }
-    if(pl.x>DEATH_L){ reachedDeath=true; break; }
+    if(!reachedDeath && pl.x>DEATH_L){
+      reachedDeath=true;
+      // bypass Death, warp to the Lust entrance, and test that climb to Lilith
+      Game.deathDefeated=true;
+      if(Game.deathBoss){ Game.deathBoss.finished=true; Game.deathBoss.dead=true; Game.deathBoss.active=false; }
+      Game.arenaWalls=[];
+      pl.x=16880; pl.y=400; pl.vx=0; pl.vy=0; pl.lastSafe={x:16880,y:400}; maxX=16880; stuckFrames=0;
+    }
+    if(pl.x>LILITH_L){ reachedLilith=true; break; }
   } else if(reachedBoss){ break; }
   if(stuckFrames>600){ break; } // stuck 10s
 }
 console.log('navbot: frames',f,'maxX',Math.round(maxX),'reachedBoss',reachedBoss,
-  'reachedDeathArena',(typeof reachedDeath!=='undefined'&&reachedDeath),
+  'reachedDeathArena',reachedDeath,'reachedLilithArena',reachedLilith,
   'deaths',Game.stats.deaths,'jumps',jumps,'stuckFrames',stuckFrames);
 // report what's near the stuck point
 if(!reachedBoss){

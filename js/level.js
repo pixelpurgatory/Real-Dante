@@ -14,7 +14,7 @@
 const PLATFORMS = [
   // world borders
   { x: -120, y: -400, w: 40, h: 1200, type: 'solid' },
-  { x: 16780, y: -400, w: 60, h: 1200, type: 'solid' },
+  { x: 22980, y: -400, w: 60, h: 1200, type: 'solid' },
 
   // VILLAGE
   { x: -80,  y: 438, w: 420, h: 12,  type: 'solid', deco: 'dock' },
@@ -69,6 +69,22 @@ const PLATFORMS = [
 
   // DEATH'S ARENA floor
   { x: 15200, y: 442, w: 1580, h: 278, type: 'solid' },  // 15200-16780
+
+  // ============================================================
+  // LUST — the Second Circle: a ruined Eden adrift in the storm
+  // ============================================================
+  { x: 16800, y: 442, w: 760, h: 278, type: 'solid' },   // LU1  16800-17560
+  { x: 17680, y: 442, w: 580, h: 278, type: 'solid' },   // LU2  17680-18260 (gap 120)
+  { x: 18060, y: 356, w: 130, h: 22, type: 'solid', puzzle: 3 }, // floating column climb
+  { x: 18240, y: 300, w: 130, h: 22, type: 'solid', puzzle: 3 },
+  { x: 18400, y: 442, w: 640, h: 278, type: 'solid' },   // LU3  18400-19040 (gap 140)
+  { x: 19180, y: 442, w: 640, h: 278, type: 'solid' },   // LU4  19180-19820 (gap 140)
+  { x: 19500, y: 352, w: 120, h: 16, type: 'oneway' },   // broken arch ledge
+  { x: 19960, y: 442, w: 600, h: 278, type: 'solid' },   // LU5  19960-20560 (gap 140)
+  { x: 20700, y: 442, w: 320, h: 278, type: 'solid' },   // LU6 approach 20700-21020 (gap 140)
+
+  // LILITH'S ARENA floor
+  { x: 21020, y: 442, w: 1960, h: 278, type: 'solid' },  // 21020-22980
 ];
 
 // ---------- hazards ----------
@@ -90,6 +106,8 @@ const CHECKPOINTS = [
   { x: 7990,  y: 400 },
   { x: 10880, y: 406 },   // Purgatory entrance
   { x: 15280, y: 406 },   // Death's arena
+  { x: 16880, y: 406 },   // Lust entrance
+  { x: 21080, y: 406 },   // Lilith's arena
 ];
 
 // ---------- enemy spawns ----------
@@ -130,6 +148,14 @@ const ENEMY_SPAWNS = [
   { type: 'soul',    x: 13720, y: 230, min: 13540, max: 14060 },
   { type: 'wraith',  x: 14420, gy: 430, min: 14260, max: 14720 },
   { type: 'soul',    x: 14960, y: 240, min: 14880, max: 15180 },
+
+  // ---- LUST ----
+  { type: 'succubus', x: 17120, y: 230, min: 16900, max: 17540 },
+  { type: 'imp',      x: 17920, gy: 442, min: 17720, max: 18240 },
+  { type: 'succubus', x: 18620, y: 220, min: 18430, max: 19020 },
+  { type: 'imp',      x: 19420, gy: 442, min: 19200, max: 19800 },
+  { type: 'succubus', x: 20120, y: 240, min: 19990, max: 20540 },
+  { type: 'imp',      x: 20800, gy: 442, min: 20720, max: 21010 },
 ];
 
 // ---------- neutral NPCs (don't attack; killable; speak when struck) ----------
@@ -142,6 +168,13 @@ const NPCS = [
     lines: ["I climb to be cleansed — do not delay me.", "Even here, the living bring violence..."] },
   { x: 14560, gy: 430, name: 'Weeping Pilgrim', gore: 'blood',
     lines: ["Death waits at the summit. None pass.", "Ah— so this is how a soul ends twice."] },
+  // Lust: figures that feign friendship, then reveal their true shape if struck
+  { x: 17320, gy: 442, name: 'Veiled Woman', gore: 'blood', seducer: true,
+    lines: ["Rest here a while, pilgrim. The storm is warmer close to me...",
+            "You poor, faithful thing — did you truly think I was only a girl?"] },
+  { x: 18820, gy: 442, name: 'Lonely Shade', gore: 'blood', seducer: true,
+    lines: ["Stay. One night in this circle is worth a hundred years above.",
+            "Such devotion. It will taste all the sweeter when it breaks."] },
 ];
 
 // ---------- buff pickups (atop optional jump puzzles) ----------
@@ -152,10 +185,14 @@ const PICKUPS = [
   { x: 6405,  y: 284, buff: 'fireball' },    // gates (before the arena)
   { x: 8815,  y: 272, buff: 'regen' },       // limbo
   { x: 12110, y: 272, buff: 'doublejump' },  // purgatory
+  { x: 18305, y: 272, buff: 'damage' },      // lust
 ];
 
 // ---------- Death arena ----------
 const DEATH_ARENA_L = 15260, DEATH_ARENA_R = 16640, DEATH_FLOOR = 442;
+
+// ---------- Lilith arena ----------
+const LILITH_L = 21080, LILITH_R = 22760, LILITH_FLOOR = 442;
 
 // ---------- Beatrice scripted appearances ----------
 const BEATRICE_SPOTS = [
@@ -164,7 +201,9 @@ const BEATRICE_SPOTS = [
   { x: 6480,  y: 390 },
   { x: 10480, y: 380 },   // Limbo → Purgatory transition
   { x: 13000, y: 384 },   // Purgatory
-  { x: 16320, y: 380 },   // final
+  { x: 16320, y: 380 },   // Purgatory summit
+  { x: 18900, y: 384 },   // Lust
+  { x: 22700, y: 380 },   // final
 ];
 
 // ---------- lore / dialogue triggers ----------
@@ -242,9 +281,28 @@ const TRIGGERS = [
     { s: 'voice', t: "ALL THAT LIVES, I HARVEST. ALL THAT DIES, I KEEP." },
     { s: 'voice', t: "YOU ARE EARLY, PILGRIM. BUT I AM NEVER LATE." },
   ]},
+
+  // ---- LUST: Satan's first appearance ----
+  { x: 16860, w: 200, once: true, cine: true, lines: [
+    { s: 'voice', t: "Ah — the living poet. You crawled through Death to chase a memory you call love." },
+    { s: 'dante', t: "Who speaks? Show yourself, shadow." },
+    { s: 'voice', t: "I am the one this whole pit kneels toward. Tell me, pilgrim — when you reach her at last, will it be HER you want, or only the wanting?" },
+    { s: 'dante', t: "I know the difference between love and appetite, deceiver." },
+    { s: 'voice', t: "Do you? My daughter Lilith will ask you again, in a softer voice. Descend — let us see what devotion is worth when desire wears a face." },
+  ]},
+  { x: 17640, w: 180, once: true, lines: [
+    { s: 'dante', t: "A drowned garden... Eden, broken and hung in the storm. Every flower the colour of a wound." },
+  ]},
+  { x: 18380, w: 180, once: true, lines: [
+    { s: 'sign', t: "Not all who smile here are kind. Strike, and the mask falls." },
+  ]},
+  { x: 20640, w: 180, once: true, beatrice: 6, lines: [
+    { s: 'beatrice', t: "Dante — her song reaches even me. Do not listen. Walk against it, always against it." },
+    { s: 'dante', t: "I hear only you. Lead me through." },
+  ]},
 ];
 
-const FINAL_SCENE_X = 16400;
+const FINAL_SCENE_X = 22640;
 
 // ---------- zone palettes ----------
 const PALETTES = {
@@ -288,6 +346,22 @@ const PALETTES = {
     terrain: '#574638', terrainTop: '#8c7458', terrainEdge: '#2e221a',
     ambient: '#ffd884', fogA: 0.13,
   },
+  lust: {
+    skyTop: '#241038', skyMid: '#6a2256', skyBot: '#bc3a5e',
+    moon: '#ff6e92', moonGlow: '#9a2046',
+    cloud1: '#48184a', cloud2: '#6e2858',
+    far: '#3a1640', mid: '#280f2e',
+    terrain: '#3c1c36', terrainTop: '#7a3056', terrainEdge: '#1a0a1c',
+    ambient: '#ff80a6', fogA: 0.14,
+  },
+  lust2: { // corrupted Eden (Lilith phase 2): black vines, red moon, white flowers
+    skyTop: '#1a0410', skyMid: '#420a1e', skyBot: '#7a0e22',
+    moon: '#ff2030', moonGlow: '#900814',
+    cloud1: '#2a0612', cloud2: '#440a1c',
+    far: '#240610', mid: '#16040c',
+    terrain: '#2a0c1e', terrainTop: '#5a1430', terrainEdge: '#100408',
+    ambient: '#ff4a64', fogA: 0.2,
+  },
 };
 
 // palette key stops along x (camera center)
@@ -301,7 +375,9 @@ const PAL_STOPS = [
   { x: 8600,  p: 'limbo' },
   { x: 10300, p: 'limbo' },
   { x: 11300, p: 'purgatory' },
-  { x: 99999, p: 'purgatory' },
+  { x: 16000, p: 'purgatory' },
+  { x: 16900, p: 'lust' },
+  { x: 99999, p: 'lust' },
 ];
 
 const PAL_FIELDS = ['skyTop','skyMid','skyBot','moon','moonGlow','cloud1','cloud2','far','mid','terrain','terrainTop','terrainEdge','ambient'];
@@ -326,5 +402,6 @@ function musicZoneAt(x) {
   if (x < 5700) return 'descent';
   if (x < 7900) return 'gates';
   if (x < 10700) return 'limbo';
-  return 'limbo'; // purgatory shares the limbo theme bed (boss music handled separately)
+  if (x < 16800) return 'limbo'; // purgatory shares the limbo theme bed
+  return 'limbo';                // lust uses the limbo bed too (boss music separate)
 }
