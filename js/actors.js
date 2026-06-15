@@ -359,10 +359,10 @@ function makePlayer(x, y) {
         for (const sn of Game.sinners) {
           if (!sn.dead && rectsOverlap(hb, sn.rect())) { sn.takeHit(dmg, this.facing); hitSomething = true; this.gainSoul(6); }
         }
-        // boss
-        if (Game.boss && !Game.boss.dead && Game.boss.active) {
-          if (rectsOverlap(hb, Game.boss.rect())) {
-            if (Game.boss.takeHit(dmg, this.facing, this.atkDir)) {
+        // bosses (gates / Death / Lilith)
+        for (const B of [Game.boss, Game.deathBoss, Game.lilithBoss]) {
+          if (B && !B.dead && B.active && rectsOverlap(hb, B.rect())) {
+            if (B.takeHit(dmg, this.facing, this.atkDir)) {
               hitSomething = true;
               this.gainSoul(14);
               Particles.burst(hb.x + hb.w / 2, hb.y + hb.h / 2, '#fff1c8', 8, 240, { life: 0.3 });
@@ -605,6 +605,8 @@ function spawnEnemy(spec) {
     case 'weeper': return makeWeeper(spec);
     case 'bowman': return makeBowman(spec);
     case 'soul': return makeSoul(spec);
+    case 'succubus': return makeSuccubus(spec);
+    case 'imp': return makeImp(spec);
   }
   return null;
 }
@@ -1222,6 +1224,115 @@ function makeSoul(spec) {
     g.fillRect(-5, -7, 3, 4); g.fillRect(3, -7, 3, 4);
     g.beginPath(); g.ellipse(0, 2, 2.5, 4, 0, 0, 7); g.fill();
     g.globalAlpha = 1; g.restore();
+  };
+  return e;
+}
+
+// --- Succubus: winged seductress of the Lust circle; lures, then dives ---
+function makeSuccubus(spec) {
+  const e = baseEnemy(spec, 32, 36);
+  e.hp = e.maxHp = 2;
+  e.gore = 'blood';
+  e.anchor = 'center';
+  e.baseY = spec.y; e.dir = 1; e.cd = rand(0.8, 2.0);
+  e.update = function (dt, pl) {
+    this.animT += dt; this.flash -= dt; this.t += dt; this.cd -= dt;
+    const cx = this.x + this.w / 2, cy = this.y + this.h / 2, px = pl.x + pl.w / 2, py = pl.y + pl.h / 2;
+    switch (this.state) {
+      case 'idle':
+        this.x += this.dir * 74 * dt;
+        if (this.x < this.min) { this.x = this.min; this.dir = 1; }
+        if (this.x + this.w > this.max) { this.x = this.max - this.w; this.dir = -1; }
+        this.y = this.baseY + Math.sin(this.animT * 2.2) * 16;
+        this.facing = this.dir;
+        if (this.cd <= 0 && Math.abs(px - cx) < 230 && py > cy - 40 && dist2(cx, cy, px, py) < 360 * 360) { this.state = 'tele'; this.t = 0; AudioSys.sfx('shriek'); }
+        break;
+      case 'tele':
+        this.facing = px > cx ? 1 : -1;
+        this.y += Math.sin(this.animT * 18) * 0.8;
+        if (this.t > 0.42) { this.state = 'dive'; this.t = 0; const dx = px - cx, dy = (py - cy) + 8, d = Math.hypot(dx, dy) || 1; this.vx = dx / d * 440; this.vy = dy / d * 440; }
+        break;
+      case 'dive':
+        this.x += this.vx * dt; this.y += this.vy * dt; this.vy += 70 * dt;
+        if (Math.random() < 0.5) Particles.spawn(cx, cy, { vx: 0, vy: 0, life: 0.3, size: 3, color: '#e85a78', glow: true });
+        if (this.t > 0.5 || this.y > 432) { this.state = 'return'; this.t = 0; }
+        break;
+      case 'return':
+        this.x += ((this.min + this.max) / 2 - cx) * dt * 1.5;
+        this.y += (this.baseY - this.y) * dt * 2.6;
+        if (Math.abs(this.y - this.baseY) < 10 && this.t > 0.7) { this.state = 'idle'; this.cd = rand(1.2, 2.4); }
+        break;
+    }
+  };
+  e.draw = function (camX, camY, time) {
+    const g = ctx, sx = this.x + this.w / 2 - camX, sy = this.y + this.h / 2 - camY;
+    g.save(); g.translate(sx, sy); g.scale(this.facing, 1);
+    const skin = this.flash > 0 ? '#fff' : '#c86a72';
+    const robe = this.flash > 0 ? '#fff' : '#7a1838';
+    const wing = this.flash > 0 ? '#fff' : '#4a1030';
+    const flap = this.state === 'dive' ? 0.9 : Math.sin(time * 9) * 0.7;
+    // bat-like wings
+    g.fillStyle = wing;
+    for (const s of [-1, 1]) {
+      g.save(); g.scale(s, 1); g.rotate(-flap * 0.4 - 0.2);
+      g.beginPath(); g.moveTo(2, -4);
+      g.quadraticCurveTo(20, -18, 32, -6); g.quadraticCurveTo(24, -2, 26, 6);
+      g.quadraticCurveTo(18, 0, 12, 4); g.closePath(); g.fill();
+      g.restore();
+    }
+    // draped body (no nudity — a clad silhouette)
+    g.fillStyle = robe;
+    g.beginPath(); g.moveTo(0, -6); g.quadraticCurveTo(9, 4, 6, 18); g.lineTo(-6, 18); g.quadraticCurveTo(-9, 4, 0, -6); g.closePath(); g.fill();
+    // head + flowing hair + small horns
+    g.fillStyle = skin; g.beginPath(); g.arc(1, -12, 6, 0, 7); g.fill();
+    g.fillStyle = wing; g.beginPath(); g.moveTo(-4, -16); g.quadraticCurveTo(-12, -8, -8, 8); g.quadraticCurveTo(-4, -2, -3, -12); g.closePath(); g.fill();
+    g.fillStyle = '#2a0c1c'; g.beginPath(); g.moveTo(-3, -17); g.lineTo(-5, -23); g.lineTo(-1, -18); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(4, -17); g.lineTo(6, -23); g.lineTo(2, -18); g.closePath(); g.fill();
+    g.fillStyle = this.state === 'tele' ? '#ff4060' : '#ffd0d8'; g.fillRect(2, -13, 2.5, 2);
+    g.restore();
+  };
+  return e;
+}
+
+// --- Imp: small ground demon of Lust; scuttles and lunges ---
+function makeImp(spec) {
+  const e = baseEnemy(spec, 24, 26);
+  e.hp = e.maxHp = 2;
+  e.gore = 'blood';
+  e.knockable = true;
+  e.dir = -1; e.hopT = 0;
+  e.update = function (dt, pl) {
+    this.animT += dt; this.flash -= dt; this.t += dt; this.hopT -= dt;
+    const cx = this.x + this.w / 2, px = pl.x + pl.w / 2;
+    const sameLevel = Math.abs((pl.y + pl.h) - (this.y + this.h)) < 70;
+    if (sameLevel && Math.abs(px - cx) < 260) this.dir = px > cx ? 1 : -1; // chase
+    else { if (this.x < this.min) this.dir = 1; if (this.x + this.w > this.max) this.dir = -1; }
+    if (!groundAhead(this, this.dir) && this.onGround) this.dir = -this.dir;
+    this.facing = this.dir;
+    this.vx = this.dir * 92;
+    if (this.onGround && this.hopT <= 0 && sameLevel && Math.abs(px - cx) < 180) { this.vy = -300; this.hopT = 1.1; AudioSys.sfx('jump'); }
+    this.vy += GRAV * dt; if (this.vy > 700) this.vy = 700;
+    moveAndCollide(this, dt);
+  };
+  e.draw = function (camX, camY, time) {
+    const g = ctx, sx = this.x + this.w / 2 - camX, sy = this.y + this.h - camY;
+    g.save(); g.translate(sx, sy); g.scale(this.facing, 1);
+    const body = this.flash > 0 ? '#fff' : '#8a1828';
+    g.fillStyle = body;
+    g.beginPath(); g.ellipse(0, -10, 11, 10, 0, 0, 7); g.fill();
+    // legs
+    const lp = Math.sin(time * 16) * 3;
+    g.strokeStyle = body; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(-5, -4); g.lineTo(-6 - lp, 0); g.moveTo(5, -4); g.lineTo(6 + lp, 0); g.stroke();
+    // horns + eyes
+    g.fillStyle = '#3a0a14';
+    g.beginPath(); g.moveTo(-6, -18); g.lineTo(-9, -26); g.lineTo(-3, -19); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(6, -18); g.lineTo(9, -26); g.lineTo(3, -19); g.closePath(); g.fill();
+    g.fillStyle = '#ffd23a'; g.fillRect(-5, -13, 3, 3); g.fillRect(3, -13, 3, 3);
+    // little tail
+    g.strokeStyle = body; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(-9, -8); g.quadraticCurveTo(-16, -10 - Math.sin(time * 6) * 3, -14, -2); g.stroke();
+    g.restore();
   };
   return e;
 }

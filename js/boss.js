@@ -471,6 +471,244 @@ function makeMinotaur() {
   };
 }
 
+// ============================================================
+// LILITH, Mother of First Desire — boss of the Lust circle
+// Seduction as a weapon: a pulling song, a smoke-teleport kiss-slash, fruit
+// you must read by its glow, and a corrupted-Eden second phase of red beams.
+// ============================================================
+function makeLilith() {
+  return {
+    x: (LILITH_L + LILITH_R) / 2 - 28, y: LILITH_FLOOR - 150,
+    w: 56, h: 138, hoverY: LILITH_FLOOR - 150,
+    vx: 0, vy: 0, facing: -1, alpha: 1,
+    hp: 40, maxHp: 40,
+    state: 'dormant', t: 0, animT: 0, flash: 0,
+    active: false, dead: false, finished: false, phase2: false,
+    nameT: 0, attackBox: null, gore: 'blood',
+    beamAng: 0, beamN: 4, lastAtk: '',
+    barName: 'LILITH, MOTHER OF FIRST DESIRE',
+    title: 'L I L I T H', subtitle: 'The First Wife, the First Refusal',
+
+    rect() { return { x: this.x + 12, y: this.y + 8, w: this.w - 24, h: this.h - 12 }; },
+
+    start() {
+      if (this.state !== 'dormant') return;
+      this.state = 'intro'; this.t = 0; this.active = true; this.nameT = 3.6;
+      if (Game.bossLine) Game.bossLine('lilith', "At last. A heart that still beats. Come closer, poet — I only want to look at you.");
+      AudioSys.sfx('roar'); AudioSys.setZone('boss'); Game.shake(7, 0.8);
+      Game.arenaWalls = [
+        { x: LILITH_L - 40, y: 60, w: 40, h: 420, type: 'solid' },
+        { x: LILITH_R, y: 60, w: 40, h: 420, type: 'solid' },
+      ];
+      AudioSys.sfx('gate');
+    },
+    reset() {
+      this.x = (LILITH_L + LILITH_R) / 2 - 28; this.y = LILITH_FLOOR - 150;
+      this.vx = 0; this.vy = 0; this.alpha = 1; this.hp = this.maxHp;
+      this.state = 'dormant'; this.t = 0; this.active = false; this.dead = false;
+      this.finished = false; this.phase2 = false; this.attackBox = null;
+      Game.arenaWalls = []; Game.fruits = []; Game.lilithCorrupted = false;
+    },
+    takeHit(dmg, dir) {
+      if (this.dead || !this.active || this.state === 'intro' || this.state === 'vanish' || this.alpha < 0.4) return false;
+      this.hp -= dmg; this.flash = 0.1;
+      Gore.hit(this.x + this.w / 2, this.y + this.h / 2, dir, 'blood', dmg > 1);
+      if (!this.phase2 && this.hp <= this.maxHp * 0.5) {
+        this.phase2 = true; this.state = 'corrupt'; this.t = 0; this.attackBox = null;
+        Game.lilithCorrupted = true;
+        if (Game.bossLine) Game.bossLine('lilith', "You refuse me? Then see what refusal made of ME.");
+        AudioSys.sfx('roar'); Game.shake(9, 1.0);
+      }
+      if (this.hp <= 0) this.die();
+      return true;
+    },
+    die() {
+      this.dead = true; this.state = 'dying'; this.t = 0; this.attackBox = null; this.vx = 0;
+      AudioSys.sfx('spirit'); Game.freeze(0.3);
+    },
+    tel(v) { return this.phase2 ? v * 0.74 : v; },
+
+    update(dt, pl) {
+      this.animT += dt; this.flash -= dt; this.t += dt;
+      if (this.nameT > 0) this.nameT -= dt;
+      this.attackBox = null;
+      const lcx = this.x + this.w / 2, lcy = this.y + this.h * 0.45;
+      const px = pl.x + pl.w / 2, py = pl.y + pl.h / 2;
+      if (this.state !== 'kiss_appear' && this.state !== 'kiss_slash') this.facing = px > lcx ? 1 : -1;
+
+      switch (this.state) {
+        case 'dormant': break;
+        case 'intro':
+          if (this.t > 1.9) { this.state = 'choose'; this.t = 0; }
+          break;
+        case 'corrupt': // brief enrage transformation
+          if (Math.random() < 0.7) Particles.spawn(lcx + rand(-30, 30), this.y + rand(0, this.h), { vx: rand(-40, 40), vy: rand(-80, -20), life: 0.6, size: 3, color: '#ff2840', glow: true });
+          if (this.t > 1.1) { this.state = 'choose'; this.t = 0; }
+          break;
+
+        case 'choose': {
+          this.y += (this.hoverY - this.y) * dt * 2;
+          if (this.t < 0.35) break;
+          const r = Math.random();
+          if (this.phase2 && r < 0.34) { this.state = 'tele_beams'; this.t = 0; }
+          else if (r < 0.34) { this.state = 'song'; this.t = 0; this.lastAtk = 'song'; }
+          else if (r < 0.7) { this.state = 'vanish'; this.t = 0; this.lastAtk = 'kiss'; }
+          else { this.state = 'fruit'; this.t = 0; }
+          break;
+        }
+
+        case 'song': {
+          // she sings; the player is pulled toward her and must walk away
+          this.y += (this.hoverY - this.y) * dt * 2;
+          const pull = this.phase2 ? 150 : 110;
+          if (pl.hitstun <= 0 && !pl.dead) pl.x += (lcx > px ? 1 : -1) * pull * dt;
+          if (Math.random() < 0.5) Particles.spawn(lcx + rand(-10, 10), this.y + 30, { vx: (px - lcx) * 0.4 * dt * 60 * 0.05, vy: 0, life: 0.6, size: 2.5, color: '#ff9ec0', glow: true });
+          if (this.t > this.tel(1.8)) { this.state = 'choose'; this.t = 0; }
+          break;
+        }
+
+        case 'vanish':
+          this.alpha = 1 - this.t / 0.4;
+          if (Math.random() < 0.8) Particles.spawn(lcx + rand(-20, 20), this.y + rand(0, this.h), { vx: rand(-30, 30), vy: rand(-20, 20), life: 0.5, size: 3, color: '#c83a66', glow: true });
+          if (this.t > 0.4) {
+            // reappear just behind the player for a kiss-slash
+            const side = (pl.facing >= 0) ? -1 : 1; // behind their back
+            this.x = clamp(px + side * 56 - this.w / 2, LILITH_L + 20, LILITH_R - this.w - 20);
+            this.y = LILITH_FLOOR - this.h - 4;
+            this.facing = px > (this.x + this.w / 2) ? 1 : -1;
+            this.state = 'kiss_appear'; this.t = 0; this.alpha = 0;
+            AudioSys.sfx('spirit');
+          }
+          break;
+        case 'kiss_appear':
+          this.alpha = Math.min(1, this.t / 0.22);
+          if (this.t > 0.26) { this.state = 'kiss_slash'; this.t = 0; AudioSys.sfx('swing'); Game.addFx('slash', this.x + this.w / 2 + this.facing * 30, this.y + 50, { flip: this.facing, rot: 0 }); }
+          break;
+        case 'kiss_slash': {
+          if (this.t < 0.18) { const bx = this.facing > 0 ? this.x + this.w - 6 : this.x - 52; this.attackBox = { x: bx, y: this.y + 30, w: 58, h: 60, dmg: 1, kb: 300 }; }
+          if (this.t > this.tel(0.5)) { this.state = 'choose'; this.t = 0; }
+          break;
+        }
+
+        case 'fruit':
+          this.y += (this.hoverY - this.y) * dt * 2;
+          if (this.t > 0.5 && !this._dropped) {
+            this._dropped = true;
+            const count = this.phase2 ? 5 : 4;
+            for (let i = 0; i < count; i++) {
+              const fx = clamp(px + rand(-220, 220), LILITH_L + 40, LILITH_R - 40);
+              Game.fruits.push(makeFruit(fx, Math.random() < 0.5 ? 'heal' : 'poison'));
+            }
+            AudioSys.sfx('orb');
+          }
+          if (this.t > 1.0) { this._dropped = false; this.state = 'choose'; this.t = 0; }
+          break;
+
+        case 'tele_beams':
+          this.y += (this.hoverY - this.y) * dt * 2;
+          if (Math.random() < 0.6) Particles.spawn(lcx, lcy, { vx: rand(-60, 60), vy: rand(-60, 60), life: 0.4, size: 3, color: '#ff2030', glow: true });
+          if (this.t > 0.9) { this.state = 'beams'; this.t = 0; this.beamAng = Math.random() * 6.28; AudioSys.sfx('shriek'); }
+          break;
+        case 'beams': {
+          // halo split into rotating red beams (readable, telegraphed above)
+          this.beamAng += dt * 1.3;
+          const ang = Math.atan2(py - lcy, px - lcx);
+          const dist = Math.hypot(px - lcx, py - lcy);
+          if (dist > 46 && pl.invuln <= 0) {
+            for (let k = 0; k < this.beamN; k++) {
+              let ba = this.beamAng + k * (Math.PI * 2 / this.beamN);
+              let d = Math.atan2(Math.sin(ang - ba), Math.cos(ang - ba));
+              if (Math.abs(d) < 0.11) { pl.hurt(1, lcx); break; }
+            }
+          }
+          if (this.t > 2.4) { this.state = 'choose'; this.t = 0; }
+          break;
+        }
+
+        case 'dying': {
+          this.alpha = clamp(1 - this.t / 2.6, 0, 1);
+          // she does not explode — she dissolves into red moths
+          if (Math.random() < 0.9) Particles.spawn(lcx + rand(-20, 20), this.y + rand(0, this.h), { vx: rand(-50, 50), vy: rand(-80, -10), life: rand(0.8, 1.6), size: rand(2, 4), color: Math.random() < 0.5 ? '#c81830' : '#e85a78', glow: true, grav: -30 });
+          if (this.t > 0.6 && !this._line1) { this._line1 = true; if (Game.bossLine) Game.bossLine('lilith', "Mmm... you truly won't be tempted. How rare. How... disappointing."); }
+          if (this.t > 2.0 && !this._line2) { this._line2 = true; if (Game.bossLine) Game.bossLine('lilith', "Ask your Beatrice what she dreamed of, down here in the dark... and whose name. Father will be so pleased you came this far."); }
+          if (this.t > 2.6 && !this.finished) {
+            this.finished = true;
+            Game.lilithCorrupted = false;
+            Game.onLilithDead();
+          }
+          break;
+        }
+      }
+
+      // her attacks hurt; her body does not (per design)
+      if (!this.dead && this.active && this.state !== 'intro' && this.alpha > 0.5) {
+        if (this.attackBox && rectsOverlap(this.attackBox, pl)) pl.hurt(this.attackBox.dmg, this.x + this.w / 2);
+      }
+    },
+
+    draw(camX, camY, time) {
+      if (this.finished) return;
+      const g = ctx;
+      const sx = this.x + this.w / 2 - camX, sy = this.y + this.h - camY;
+      if (sx < -260 || sx > VW + 260) return;
+      // telegraph / active beams drawn from her centre
+      if (this.state === 'beams' || this.state === 'tele_beams') {
+        const lcx = this.x + this.w / 2 - camX, lcy = this.y + this.h * 0.45 - camY;
+        const active = this.state === 'beams';
+        const len = active ? 900 : 260 * Math.min(1, this.t / 0.9);
+        g.save();
+        for (let k = 0; k < this.beamN; k++) {
+          const ba = (active ? this.beamAng : 0) + k * (Math.PI * 2 / this.beamN);
+          g.strokeStyle = active ? 'rgba(255,40,56,0.85)' : 'rgba(255,60,80,0.35)';
+          g.lineWidth = active ? 7 : 4;
+          g.beginPath(); g.moveTo(lcx, lcy); g.lineTo(lcx + Math.cos(ba) * len, lcy + Math.sin(ba) * len); g.stroke();
+        }
+        g.restore();
+      }
+      g.save();
+      g.translate(sx, sy);
+      g.globalAlpha = clamp(this.alpha, 0, 1) * (this.state === 'dying' ? clamp(1 - this.t / 2.6, 0, 1) : 1);
+      g.scale(this.facing, 1);
+      const skin = this.flash > 0 ? '#fff' : '#cf7a82';
+      const gown = this.flash > 0 ? '#fff' : (this.phase2 ? '#3a0814' : '#8a1840');
+      const hair = this.flash > 0 ? '#fff' : '#1a0610';
+      const wing = this.phase2 ? '#0a0408' : '#5a1230';
+      const float = Math.sin(time * 1.6) * 5;
+      // wings: feathered in P1, black angel wings in P2
+      g.fillStyle = wing;
+      for (const s of [-1, 1]) {
+        g.save(); g.scale(s, 1); g.rotate(-0.3 + Math.sin(time * 3) * 0.1);
+        g.beginPath(); g.moveTo(0, -80 + float);
+        if (this.phase2) { g.quadraticCurveTo(54, -120, 70, -54); g.quadraticCurveTo(48, -70, 30, -50); g.quadraticCurveTo(50, -40, 24, -36); }
+        else { g.quadraticCurveTo(46, -104, 60, -60); g.quadraticCurveTo(40, -70, 22, -54); }
+        g.closePath(); g.fill();
+        g.restore();
+      }
+      // flowing gown
+      g.fillStyle = gown;
+      g.beginPath(); g.moveTo(0, -104 + float);
+      g.quadraticCurveTo(26, -70, 18, -2); g.lineTo(-18, -2); g.quadraticCurveTo(-26, -70, 0, -104 + float);
+      g.closePath(); g.fill();
+      // bodice highlight
+      g.fillStyle = skin; g.beginPath(); g.ellipse(0, -82 + float, 11, 16, 0, 0, 7); g.fill();
+      g.fillStyle = gown; g.beginPath(); g.ellipse(0, -74 + float, 13, 12, 0, 0, 7); g.fill();
+      // head + long hair
+      g.fillStyle = skin; g.beginPath(); g.arc(0, -114 + float, 9, 0, 7); g.fill();
+      g.fillStyle = hair;
+      g.beginPath(); g.moveTo(-8, -120 + float); g.quadraticCurveTo(-20, -90, -12, -40); g.quadraticCurveTo(-6, -80, -6, -116 + float); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(8, -120 + float); g.quadraticCurveTo(18, -92, 12, -46); g.quadraticCurveTo(6, -82, 6, -116 + float); g.closePath(); g.fill();
+      // eyes (glowing red in P2 / when singing)
+      g.fillStyle = (this.phase2 || this.state === 'song') ? '#ff2840' : '#3a1018';
+      g.fillRect(2, -116 + float, 3, 2.5);
+      // crown / halo (splits in P2)
+      if (this.phase2) { g.strokeStyle = '#ff2030'; g.lineWidth = 2; g.beginPath(); g.arc(0, -126 + float, 11, -0.6, Math.PI + 0.6); g.stroke(); }
+      else { g.strokeStyle = '#caa84a'; g.lineWidth = 2; g.beginPath(); g.arc(0, -128 + float, 10, Math.PI, 0); g.stroke(); }
+      g.globalAlpha = 1;
+      g.restore();
+    },
+  };
+}
+
 // ground shockwave from the slam
 function makeWave(x, floorY, dir) {
   return {

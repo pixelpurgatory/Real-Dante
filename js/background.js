@@ -89,6 +89,30 @@ const BG = {
       this.mountain(g, bx, 478, 120 + (i % 3) * 34, 90 + (i * 47) % 130, mixColor('#6a5a52', '#46383e', i / 6));
     }
     this.circlesTower(g, tx, 478);
+
+    // --- lust: a purple storm wall + distant floating ruins of Eden
+    const lx0 = 0.25 * 16800 + 480, lspan = 0.25 * 6200 + 600;
+    for (let i = 0; i < 4; i++) {
+      const gy2 = 70 + i * 88;
+      const grd = g.createLinearGradient(0, gy2, 0, gy2 + 80);
+      grd.addColorStop(0, 'rgba(120,30,80,0)');
+      grd.addColorStop(0.5, 'rgba(150,46,96,0.30)');
+      grd.addColorStop(1, 'rgba(120,30,80,0)');
+      g.fillStyle = grd;
+      g.fillRect(lx0 - 200, gy2 + Math.sin(i) * 10, lspan, 80);
+    }
+    // a sullen red moon hanging in the storm
+    const lmx = lx0 + lspan * 0.5, lmy = 120;
+    const lg = g.createRadialGradient(lmx, lmy, 10, lmx, lmy, 150);
+    lg.addColorStop(0, 'rgba(255,70,110,0.5)'); lg.addColorStop(1, 'rgba(255,70,110,0)');
+    g.fillStyle = lg; g.fillRect(lmx - 150, lmy - 150, 300, 300);
+    g.fillStyle = '#c83a58'; g.beginPath(); g.arc(lmx, lmy, 40, 0, 7); g.fill();
+    // distant floating broken colonnade
+    for (let i = 0; i < 12; i++) {
+      const bx = 0.25 * (16950 + i * 460) + 480;
+      const fy = 360 + Math.sin(i * 1.7) * 60;
+      this.brokenColumn(g, bx, fy, 16, 70 + (i % 3) * 28, '#3a1640');
+    }
   },
 
   // the seven-cornice mountain-tower of Purgatory (distant, in the sky)
@@ -454,6 +478,47 @@ const BG = {
       const x = 10300 + rng() * 380;
       g.fillRect(x, 412 + rng() * 8, 4, 12);
     }
+
+    // ---- Lust: broken Eden — statues, silk curtains, beds of red flowers ----
+    this.statue(g, 17000, 442, '#3a1c34');
+    this.brokenColumn(g, 17260, 442, 22, 120, '#3a1640');
+    this.silkCurtain(g, 17700, 300, 70, 150);
+    this.statue(g, 18560, 442, '#3a1c34');
+    this.brokenColumn(g, 19120, 442, 24, 130, '#3a1640');
+    this.silkCurtain(g, 19700, 290, 80, 160);
+    this.brokenColumn(g, 20240, 442, 22, 100, '#3a1640');
+    this.statue(g, 20620, 442, '#3a1c34');
+    this.brokenColumn(g, 21900, 442, 26, 150, '#2a1226');
+    this.brokenColumn(g, 22300, 442, 26, 150, '#2a1226');
+    // beds of red flowers along the Lust ground
+    for (let x = 16820; x < 22900; x += 12) {
+      if (x > 21020 && x < 22760) continue; // keep Lilith's floor clear
+      if (rng() < 0.5) {
+        const fy = 440;
+        g.strokeStyle = '#3a5a2e'; g.lineWidth = 1.5;
+        g.beginPath(); g.moveTo(x, fy); g.lineTo(x + rng() * 4 - 2, fy - 8 - rng() * 6); g.stroke();
+        g.fillStyle = rng() < 0.5 ? '#c8203a' : '#e23a52';
+        g.beginPath(); g.arc(x + rng() * 4 - 2, fy - 12 - rng() * 6, 3, 0, 7); g.fill();
+      }
+    }
+  },
+
+  // a hanging silk curtain (Lust deco)
+  silkCurtain(g, x, gy, w, h) {
+    const grd = g.createLinearGradient(x, gy, x, gy + h);
+    grd.addColorStop(0, 'rgba(150,30,70,0.85)');
+    grd.addColorStop(1, 'rgba(90,16,46,0.7)');
+    g.fillStyle = grd;
+    g.beginPath();
+    g.moveTo(x, gy);
+    for (let i = 0; i <= 6; i++) {
+      const fx = x + (i / 6) * w;
+      const fy = gy + h + Math.sin(i * 1.6) * 8;
+      g.lineTo(fx, fy);
+    }
+    g.lineTo(x + w, gy);
+    g.closePath(); g.fill();
+    g.fillStyle = '#caa84a'; g.fillRect(x - 2, gy - 4, w + 4, 5); // brass rod
   },
 
   house(g, x, gy, w, h, rng) {
@@ -713,7 +778,8 @@ const BG = {
     if (x < 5700) return 'descent';
     if (x < 7900) return 'gates';
     if (x < 10700) return 'limbo';
-    return 'purgatory';
+    if (x < 16800) return 'purgatory';
+    return 'lust';
   },
 
   // ----------------------------------------------------------
@@ -904,7 +970,9 @@ const BG = {
     ctx.drawImage(this.mid, clamp(camX * this.MID_P, 0, this.mid.width - VW), 0, VW, VH, 0, 0, VW, VH);
 
     // purgatory atmosphere: light shafts, drifting souls, falling sinners
-    if (camX + VW / 2 > 10700) this.drawPurgatoryAmbient(camX, time);
+    if (camX + VW / 2 > 10700 && camX + VW / 2 < 16800) this.drawPurgatoryAmbient(camX, time);
+    // lust atmosphere: storm, drifting red petals, corruption when Lilith rages
+    if (camX + VW / 2 > 16800) this.drawLustAmbient(camX, time);
 
     // water behind deco
     this.drawWater(camX, time);
@@ -917,6 +985,45 @@ const BG = {
     this.updateMotes(dt, camX, pal);
     this.drawMotes(camX, pal, time);
     return pal;
+  },
+
+  // Lust: a purple storm, drifting petals, and Lilith's red corruption
+  drawLustAmbient(camX, time) {
+    const g = ctx;
+    const corrupt = (typeof Game !== 'undefined' && Game.lilithCorrupted);
+    // occasional lightning wash
+    g.save();
+    const flash = Math.max(0, Math.sin(time * 0.7) - 0.95) * 20;
+    if (flash > 0) { g.globalAlpha = flash * 0.25; g.fillStyle = corrupt ? '#ff3040' : '#d86aa0'; g.fillRect(0, 0, VW, VH); }
+    // drifting petals (parallax)
+    g.globalAlpha = 1;
+    for (let i = 0; i < 22; i++) {
+      const seed = i * 53.7;
+      let x = ((seed * 41 - camX * 0.6 + time * 30) % (VW + 120) + VW + 120) % (VW + 120) - 60;
+      const y = ((seed * 29 + time * (24 + (i % 4) * 10)) % (VH + 80)) - 40;
+      g.globalAlpha = 0.5;
+      g.fillStyle = corrupt ? (i % 3 ? '#e8e0ee' : '#ff3a52') : (i % 2 ? '#d8284a' : '#e85a78');
+      g.save(); g.translate(x, y); g.rotate(seed + time * 2);
+      g.beginPath(); g.ellipse(0, 0, 4, 2.2, 0, 0, 7); g.fill();
+      g.restore();
+    }
+    g.restore();
+    g.globalAlpha = 1;
+    // corruption: pulsing red wash + descending black vines
+    if (corrupt) {
+      g.save();
+      g.globalAlpha = 0.10 + Math.sin(time * 4) * 0.05;
+      g.fillStyle = '#8a0014'; g.fillRect(0, 0, VW, VH);
+      g.globalAlpha = 0.5; g.strokeStyle = '#160008'; g.lineWidth = 3;
+      for (let i = 0; i < 6; i++) {
+        const vx = ((i * 180 - camX * 0.9) % (VW + 200) + VW + 200) % (VW + 200) - 100;
+        g.beginPath(); g.moveTo(vx, 0);
+        for (let yy = 0; yy < VH; yy += 30) g.lineTo(vx + Math.sin(yy * 0.05 + i) * 18, yy);
+        g.stroke();
+      }
+      g.restore();
+      g.globalAlpha = 1;
+    }
   },
 
   // distant souls and damned raining from the golden sky (pure atmosphere)

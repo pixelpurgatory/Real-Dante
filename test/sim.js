@@ -68,7 +68,7 @@ vm.createContext(sandbox);
 const files = ['core.js','audio.js','level.js','background.js','actors.js','systems.js','boss.js','ui.js','touch.js','newsletter.js','main.js'];
 let bundle = '';
 for (const f of files) bundle += '\n//=== ' + f + ' ===\n' + fs.readFileSync('js/' + f, 'utf8');
-bundle += '\n;globalThis.Game=Game;globalThis.Input=Input;globalThis.Particles=Particles;globalThis.FINAL_SCENE_X=FINAL_SCENE_X;globalThis.DEATH_ARENA_L=DEATH_ARENA_L;globalThis.DEATH_ARENA_R=DEATH_ARENA_R;';
+bundle += '\n;globalThis.Game=Game;globalThis.Input=Input;globalThis.Particles=Particles;globalThis.FINAL_SCENE_X=FINAL_SCENE_X;globalThis.DEATH_ARENA_L=DEATH_ARENA_L;globalThis.DEATH_ARENA_R=DEATH_ARENA_R;globalThis.LILITH_L=LILITH_L;globalThis.LILITH_R=LILITH_R;';
 try {
   vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
 } catch (e) {
@@ -164,9 +164,27 @@ try {
   console.log('death boss phase2', dPhase2, 'defeated', Game.deathDefeated, 'finished', Game.deathBoss.finished);
   if (!Game.deathDefeated) errors.push('DEATH BOSS never died under sustained damage');
 
+  // ---- scripted LILITH BOSS (Lust) ----
+  Input.keys = {};
+  const lmid = (sandbox.LILITH_L + sandbox.LILITH_R) / 2;
+  Game.player.x = lmid; Game.player.y = 400; Game.player.hp = 8; Game.player.dead = false;
+  step(28);
+  console.log('lilith boss:', Game.lilithBoss.state, 'active', Game.lilithBoss.active);
+  if (!Game.lilithBoss.active) errors.push('LILITH did not activate on arena entry');
+  let lPhase2 = false;
+  for (let i = 0; i < 7000 && !Game.lilithDefeated; i++) {
+    if (Game.player.dead) { Game.player.dead = false; Game.player.hp = 8; Game.player.x = lmid; Game.player.y = 400; }
+    Game.player.invuln = 1;
+    if (i % 8 === 0 && Game.lilithBoss.active && !Game.lilithBoss.dead) Game.lilithBoss.takeHit(1, 1);
+    if (Game.lilithBoss.phase2) lPhase2 = true;
+    Game.update(STEP); Game.draw(STEP); Input.endFrame();
+  }
+  console.log('lilith phase2', lPhase2, 'defeated', Game.lilithDefeated, 'finished', Game.lilithBoss.finished);
+  if (!Game.lilithDefeated) errors.push('LILITH never died under sustained damage');
+
   // ---- scripted ENDING ----
-  Game.enemies = []; Game.sinners = [];
-  sandbox.Game.beatrice && (sandbox.Game.beatrice.idx = 5);
+  Game.enemies = []; Game.sinners = []; Game.fruits = [];
+  sandbox.Game.beatrice && (sandbox.Game.beatrice.idx = 7);
   Game.player.x = sandbox.FINAL_SCENE_X + 20; Game.player.y = 410;
   Game.player.dead = false; Game.player.hp = 5;
   Game.player.lastSafe = { x: Game.player.x, y: Game.player.y };

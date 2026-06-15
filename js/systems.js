@@ -181,8 +181,21 @@ function makeNPC(spec) {
     type: 'npc', x: spec.x - w / 2, y: spec.gy - h, w, h,
     name: spec.name, lines: spec.lines, gore: spec.gore || 'blood',
     hp: 2, dead: false, flash: 0, said: 0, t: rand(0, 9), facing: -1, neutral: true,
+    seducer: spec.seducer || false,
     rect() { return this; },
     takeHit(dmg, dir) {
+      // a seducer drops its disguise on the first blow and becomes a succubus
+      if (this.seducer) {
+        Dialogue.say([{ s: 'npc', t: this.lines[this.lines.length - 1] }], { x: this.x + this.w / 2, y: this.y - 6 });
+        Gore.hit(this.x + this.w / 2, this.y + this.h / 2, dir, 'soul', true);
+        AudioSys.sfx('shriek');
+        if (typeof Game !== 'undefined' && typeof spawnEnemy === 'function') {
+          const cx = this.x + this.w / 2;
+          Game.enemies.push(spawnEnemy({ type: 'succubus', x: cx, y: this.y - 30, min: cx - 180, max: cx + 180 }));
+        }
+        this.dead = true;
+        return true;
+      }
       this.hp -= dmg; this.flash = 0.12;
       Gore.hit(this.x + this.w / 2, this.y + this.h / 2, dir, this.gore);
       // speak when struck (not killed)
@@ -223,6 +236,44 @@ function makeNPC(spec) {
       g.fillStyle = this.flash > 0 ? '#fff' : '#d8ccc0';
       g.beginPath(); g.arc(2, -h + 11 + sway, 5, 0, 7); g.fill();
       g.restore();
+    },
+  };
+}
+
+// ---------------- Lilith's fruit (read the glow: pink heals, black poisons) ----------------
+function makeFruit(x, kind) {
+  return {
+    x, y: 90, vy: 70, kind, dead: false, t: rand(0, 9), landed: false, life: 9,
+    rect() { return { x: this.x - 11, y: this.y - 11, w: 22, h: 22 }; },
+    update(dt, pl) {
+      this.t += dt; this.life -= dt;
+      if (!this.landed) {
+        this.vy += 360 * dt; this.y += this.vy * dt;
+        const r = this.rect();
+        for (const p of PLATFORMS) { if (p.type !== 'oneway' && rectsOverlap(r, p) && this.vy > 0) { this.y = p.y - 11; this.landed = true; break; } }
+        if (this.y > KILL_Y) this.dead = true;
+      }
+      if (!this.dead && rectsOverlap(this.rect(), pl)) {
+        if (this.kind === 'heal') { if (pl.hp < pl.maxHp) pl.hp++; AudioSys.sfx('heal'); Particles.burst(this.x, this.y, '#ff9ec0', 16, 160, { grav: -120, life: 0.7 }); }
+        else { pl.hurt(1, this.x); Particles.burst(this.x, this.y, '#3a1020', 16, 180); }
+        this.dead = true;
+      }
+      if (this.life <= 0) this.dead = true;
+    },
+    draw(camX, camY, time) {
+      const g = ctx, sx = this.x - camX, sy = this.y - camY;
+      const heal = this.kind === 'heal';
+      const c = heal ? [255, 130, 180] : [40, 12, 24];
+      const gl = g.createRadialGradient(sx, sy, 2, sx, sy, 22);
+      gl.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},${heal ? 0.8 : 0.7})`);
+      gl.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`);
+      g.fillStyle = gl; g.fillRect(sx - 22, sy - 22, 44, 44);
+      g.fillStyle = heal ? '#ff6a9a' : '#1a0810';
+      g.beginPath(); g.arc(sx, sy, 9 + Math.sin(time * 6 + this.t) * 1, 0, 7); g.fill();
+      // a readable highlight: pink fruit shines, black fruit has an oily dark sheen
+      g.fillStyle = heal ? 'rgba(255,220,235,0.9)' : 'rgba(120,30,60,0.8)';
+      g.beginPath(); g.arc(sx - 3, sy - 3, 2.5, 0, 7); g.fill();
+      g.strokeStyle = '#4a7a3a'; g.lineWidth = 2; g.beginPath(); g.moveTo(sx, sy - 9); g.lineTo(sx + 2, sy - 14); g.stroke();
     },
   };
 }

@@ -110,6 +110,27 @@ for(let i=0;i<6000 && !Game.deathDefeated;i++){ if(Game.player.dead){Game.player
 ok(dP3,'Death reaches phase 3 (40% HP)');
 ok(Game.deathDefeated,'Death can be defeated');
 
+console.log('--- Lilith (Lust boss) ---');
+Game.lilithDefeated=false;
+Game.lilithBoss.reset(); Game.lilithBoss.start();
+for(let i=0;i<260 && (Game.lilithBoss.state==='intro'||Game.lilithBoss.state==='vanish'||Game.lilithBoss.alpha<0.5);i++){Game.update(1/60);Input.endFrame();}
+{
+  const p=Game.player; p.x=Game.lilithBoss.x+8; p.y=400; p.atkDir=0; p.facing=1;
+  ok(rectsOverlap(p.attackBox(), Game.lilithBoss.rect()),'grounded melee reaches Lilith');
+}
+Game.player.x=(21080+22760)/2; Game.player.y=400; Game.player.dead=false; Game.player.hp=10;
+let lP2=false;
+for(let i=0;i<8000 && !Game.lilithDefeated;i++){
+  if(Game.player.dead){Game.player.dead=false;Game.player.hp=10;}
+  Game.player.invuln=1;
+  if(i%8===0 && Game.lilithBoss.active && !Game.lilithBoss.dead) Game.lilithBoss.takeHit(1,1);
+  if(Game.lilithBoss.phase2) lP2=true;
+  Game.update(1/60);Input.endFrame();
+}
+ok(lP2,'Lilith reaches her corrupted-Eden phase (50% HP)');
+ok(Game.lilithDefeated,'Lilith can be defeated');
+ok(Game.lilithCorrupted===false,'corruption clears when Lilith falls');
+
 console.log('--- level select ---');
 Game.state='title'; Input.pressed={}; Input.vpressed={};
 Input.pressed['Enter']=true; Game.update(1/60); Input.endFrame();

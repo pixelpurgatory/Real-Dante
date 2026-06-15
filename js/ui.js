@@ -390,7 +390,7 @@ const Screens = {
   },
 
   // ---- level select ----
-  selRowY0: 168, selRowH: 62,
+  selRowY0: 150, selRowH: 54,
   selectRowAt(gameY) {
     for (let i = 0; i < SELECT_LEVELS.length; i++) {
       const cy = this.selRowY0 + i * this.selRowH;

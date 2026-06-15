@@ -9,24 +9,27 @@ const AREA_TITLES = {
   gates:     ['THE GATES OF HELL', 'Abandon All Hope'],
   limbo:     ['LIMBO', 'The First Circle'],
   purgatory: ['PURGATORY', 'Mountain of the Seven Cornices'],
+  lust:      ['LUST', 'The Second Circle — Storm of Desire'],
 };
 
-// start-of-run level select. cp = checkpoint index; prog = 1 means start with
-// the Gates boss already beaten (grants the permanent double-jump + bonus HP).
+// start-of-run level select. cp = checkpoint index; prog = bosses already beaten
+// (1 = past the Gates → double-jump + 10 HP; 2 = also past Death).
 const SELECT_LEVELS = [
   { name: 'FLORENCE',       sub: 'Beneath the Violet Dusk',          cp: 0, prog: 0 },
   { name: 'THE DESCENT',    sub: 'Road of Ash and Iron',            cp: 1, prog: 0 },
   { name: 'THE GATES',      sub: 'The Warden Asterion Waits',       cp: 2, prog: 0 },
   { name: 'LIMBO',          sub: 'The First Circle',                cp: 3, prog: 1 },
   { name: 'PURGATORY',      sub: 'Mountain of the Seven Cornices',  cp: 4, prog: 1 },
+  { name: 'LUST',           sub: 'The Second Circle of Hell',       cp: 6, prog: 2 },
 ];
 
 const Game = {
   state: 'title',          // title | play | victory
   paused: false,
-  player: null, enemies: [], boss: null, deathBoss: null, beatrice: null,
+  player: null, enemies: [], boss: null, deathBoss: null, lilithBoss: null, beatrice: null,
   orbs: [], waves: [], fx: [],
-  shots: [], pickups: [], npcs: [], sinners: [],
+  shots: [], pickups: [], npcs: [], sinners: [], fruits: [],
+  lilithCorrupted: false,
   arenaWalls: [],
   triggers: [],
   camX: 0, camY: 0,
@@ -37,8 +40,8 @@ const Game = {
   cinematic: false,
   endStarted: false, endT: 0, victoryT: 0,
   respawnFade: 0,
-  bossDefeated: false, deathDefeated: false,
-  permaDoubleJump: false, bonusHp: 0, respawnBuffs: false, bossDeaths: 0, deathBossDeaths: 0,
+  bossDefeated: false, deathDefeated: false, lilithDefeated: false,
+  permaDoubleJump: false, bonusHp: 0, respawnBuffs: false, bossDeaths: 0, deathBossDeaths: 0, lilithDeaths: 0,
   sinnerT: 0,
   titleCam: 0, titleDir: 1,
   time: 0,
@@ -62,10 +65,12 @@ const Game = {
       this.stats = { time: 0, deaths: 0, kills: 0 };
       this.bossDefeated = false;
       this.deathDefeated = false;
+      this.lilithDefeated = false;
       this.permaDoubleJump = false;
       this.bonusHp = 0;
       this.bossDeaths = 0;
       this.deathBossDeaths = 0;
+      this.lilithDeaths = 0;
       this.triggers = TRIGGERS.map(t => Object.assign({ fired: false }, t));
       this.beatrice = makeBeatrice();
       this.endStarted = false;
@@ -91,6 +96,8 @@ const Game = {
     this.waves = [];
     this.shots = [];
     this.sinners = [];
+    this.fruits = [];
+    this.lilithCorrupted = false;
     this.fx = [];
     this.arenaWalls = [];
     // gates boss
@@ -101,6 +108,10 @@ const Game = {
     this.deathBoss = makeDeath();
     if (this.deathBossDeaths >= 10) { this.deathBoss.hp = this.deathBoss.maxHp = Math.ceil(this.deathBoss.maxHp / 2); }
     if (this.deathDefeated) { this.deathBoss.dead = true; this.deathBoss.finished = true; this.deathBoss.active = false; this.deathBoss.state = 'gone'; }
+    // lust boss (Lilith)
+    this.lilithBoss = makeLilith();
+    if (this.lilithDeaths >= 10) { this.lilithBoss.hp = this.lilithBoss.maxHp = Math.ceil(this.lilithBoss.maxHp / 2); }
+    if (this.lilithDefeated) { this.lilithBoss.dead = true; this.lilithBoss.finished = true; this.lilithBoss.active = false; this.lilithBoss.state = 'gone'; }
     Dialogue.clear();
   },
 
@@ -156,8 +167,22 @@ const Game = {
     this.arenaWalls = [];
     this.waves = [];
     AudioSys.setZone(musicZoneAt(this.player.x));
+    // forward checkpoint into Lust
+    this.respawn = { x: CHECKPOINTS[6].x, y: CHECKPOINTS[6].y };
+    this.activeCheckpoint = 6;
     Dialogue.say([
-      { s: 'dante', t: "Even Death can be made to wait. Beatrice — I am here." },
+      { s: 'dante', t: "Even Death can be made to wait. The way down opens... and something below is laughing." },
+    ]);
+  },
+
+  onLilithDead() {
+    this.lilithDefeated = true;
+    this.arenaWalls = [];
+    this.lilithCorrupted = false;
+    this.fruits = [];
+    AudioSys.setZone(musicZoneAt(this.player.x));
+    Dialogue.say([
+      { s: 'dante', t: "The storm... it's gone quiet. For the first time, it's quiet." },
     ]);
   },
 
@@ -188,6 +213,11 @@ const Game = {
       this.boss.dead = true; this.boss.finished = true; this.boss.active = false; this.boss.state = 'gone';
       this.player.maxHp = 10; this.player.hp = 10;
       HUD.prevHp = 10;
+    }
+    if (L.prog >= 2) {
+      // also past Death (Purgatory cleared)
+      this.deathDefeated = true;
+      this.deathBoss.dead = true; this.deathBoss.finished = true; this.deathBoss.active = false; this.deathBoss.state = 'gone';
     }
     this.respawn = { x: cp.x, y: cp.y };
     this.activeCheckpoint = L.cp;
@@ -271,7 +301,8 @@ const Game = {
 
     // music zone
     if ((this.boss && this.boss.active && !this.boss.dead) ||
-        (this.deathBoss && this.deathBoss.active && !this.deathBoss.dead)) AudioSys.setZone('boss');
+        (this.deathBoss && this.deathBoss.active && !this.deathBoss.dead) ||
+        (this.lilithBoss && this.lilithBoss.active && !this.lilithBoss.dead)) AudioSys.setZone('boss');
     else AudioSys.setZone(musicZoneAt(pl.x));
 
     // area title card (Hollow-Knight style) on entering a new zone
@@ -291,6 +322,7 @@ const Game = {
       this._wasDead = true;
       if (this.boss && this.boss.active && !this.boss.dead) { this.pendingNewsletter = true; this.bossDeaths++; }
       if (this.deathBoss && this.deathBoss.active && !this.deathBoss.dead) this.deathBossDeaths++;
+      if (this.lilithBoss && this.lilithBoss.active && !this.lilithBoss.dead) this.lilithDeaths++;
     }
     if (!pl.dead) this._wasDead = false;
 
@@ -392,6 +424,7 @@ const Game = {
           if (!s.dead) for (const sn of this.sinners) { if (!sn.dead && rectsOverlap(s.rect(), sn.rect())) { sn.takeHit(s.dmg, s.vx >= 0 ? 1 : -1); s.dead = true; break; } }
           if (!s.dead && this.boss && this.boss.active && !this.boss.dead && rectsOverlap(s.rect(), this.boss.rect())) { this.boss.takeHit(s.dmg, s.vx >= 0 ? 1 : -1, 0); s.dead = true; }
           if (!s.dead && this.deathBoss && this.deathBoss.active && !this.deathBoss.dead && rectsOverlap(s.rect(), this.deathBoss.rect())) { this.deathBoss.takeHit(s.dmg, s.vx >= 0 ? 1 : -1); s.dead = true; }
+          if (!s.dead && this.lilithBoss && this.lilithBoss.active && !this.lilithBoss.dead && rectsOverlap(s.rect(), this.lilithBoss.rect())) { this.lilithBoss.takeHit(s.dmg, s.vx >= 0 ? 1 : -1); s.dead = true; }
         }
       }
       if (s.dead) { Particles.burst(s.x, s.y, s.kind === 'fireball' ? '#ff9a40' : '#bfe0ff', 6, 140, { life: 0.3 }); this.shots.splice(i, 1); }
@@ -430,6 +463,18 @@ const Game = {
       if (this.deathBoss.active || this.deathBoss.state === 'dormant') this.deathBoss.update(dt, pl);
     }
 
+    // ---- Lilith boss (Lust) ----
+    if (this.lilithBoss && !this.lilithBoss.finished) {
+      if (!this.lilithDefeated && this.lilithBoss.state === 'dormant' && pl.x > LILITH_L + 60 && pl.x < LILITH_R) {
+        this.lilithBoss.start();
+      }
+      if (this.lilithBoss.active || this.lilithBoss.state === 'dormant') this.lilithBoss.update(dt, pl);
+    }
+
+    // ---- Lilith's fruit ----
+    for (const fr of this.fruits) fr.update(dt, pl);
+    this.fruits = this.fruits.filter(f => !f.dead);
+
     // beatrice
     this.beatrice.update(dt);
 
@@ -441,6 +486,7 @@ const Game = {
         const anchor = { x: t.x + t.w / 2, y: 350 };
         Dialogue.say(t.lines, anchor);
         if (t.beatrice !== undefined) this.beatriceScene = t;
+        if (t.cine) { this.cinematic = true; this.cineUntilDialogue = true; }
       }
     }
     // when a beatrice conversation finishes, she drifts onward
@@ -466,8 +512,8 @@ const Game = {
       }
     }
 
-    // ending (requires both bosses defeated and reaching the summit)
-    if (!this.endStarted && pl.x > FINAL_SCENE_X && this.deathDefeated) {
+    // ending (requires all bosses defeated and reaching the far end of Lust)
+    if (!this.endStarted && pl.x > FINAL_SCENE_X && this.lilithDefeated) {
       this.startEnding();
     }
     if (this.endStarted) {
@@ -500,6 +546,9 @@ const Game = {
     }
     if (this.deathBoss && this.deathBoss.active && !this.deathBoss.dead) {
       target = clamp(target, DEATH_ARENA_L - 30, DEATH_ARENA_R + 70 - VW);
+    }
+    if (this.lilithBoss && this.lilithBoss.active && !this.lilithBoss.dead) {
+      target = clamp(target, LILITH_L - 30, LILITH_R + 70 - VW);
     }
     if (this.endStarted) target = this.beatrice.x - VW / 2 - 60;
     target = clamp(target, 0, WORLD_W - VW);
@@ -581,6 +630,8 @@ const Game = {
       for (const sn of this.sinners) if (!sn.dead) this.drawBig(sn, cx, cy);
       if (this.boss && !this.boss.finished) this.drawBig(this.boss, cx, cy);
       if (this.deathBoss && !this.deathBoss.finished) this.drawBig(this.deathBoss, cx, cy);
+      if (this.lilithBoss && !this.lilithBoss.finished) this.drawBig(this.lilithBoss, cx, cy);
+      for (const fr of this.fruits) fr.draw(cx, cy, this.time);
       for (const o of this.orbs) o.draw(cx, cy, this.time);
       for (const s of this.shots) s.draw(cx, cy);
       for (const w of this.waves) w.draw(cx, cy, this.time);
@@ -610,7 +661,8 @@ const Game = {
     // HUD & dialogue
     if (this.state === 'play') {
       HUD.draw(this.player, this.time);
-      const activeBoss = (this.deathBoss && this.deathBoss.active && !this.deathBoss.finished) ? this.deathBoss
+      const activeBoss = (this.lilithBoss && this.lilithBoss.active && !this.lilithBoss.finished) ? this.lilithBoss
+                       : (this.deathBoss && this.deathBoss.active && !this.deathBoss.finished) ? this.deathBoss
                        : (this.boss && this.boss.active && !this.boss.finished) ? this.boss : null;
       if (activeBoss) HUD.drawBossBar(activeBoss, this.time);
       HUD.drawBuffs(this.player, this.time);
