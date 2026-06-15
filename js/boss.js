@@ -473,19 +473,20 @@ function makeMinotaur() {
 
 // ============================================================
 // LILITH, Mother of First Desire — boss of the Lust circle
-// Seduction as a weapon: a pulling song, a smoke-teleport kiss-slash, fruit
-// you must read by its glow, and a corrupted-Eden second phase of red beams.
+// Seduction is the weapon: a pulling Song, a smoke-teleport kiss-slash, fans of
+// bladed claws, a charm-lunge, a rising dive-slam, summoned thralls, a shriek
+// nova, and a corrupted-Eden second phase of rotating red beams. (No fruit.)
 // ============================================================
 function makeLilith() {
   return {
-    x: (LILITH_L + LILITH_R) / 2 - 28, y: LILITH_FLOOR - 150,
-    w: 56, h: 138, hoverY: LILITH_FLOOR - 150,
+    x: (LILITH_L + LILITH_R) / 2 - 30, y: LILITH_FLOOR - 152,
+    w: 60, h: 152, hoverY: LILITH_FLOOR - 152,
     vx: 0, vy: 0, facing: -1, alpha: 1,
-    hp: 40, maxHp: 40,
+    hp: 60, maxHp: 60,
     state: 'dormant', t: 0, animT: 0, flash: 0,
     active: false, dead: false, finished: false, phase2: false,
     nameT: 0, attackBox: null, gore: 'blood',
-    beamAng: 0, beamN: 4, lastAtk: '',
+    beamAng: 0, beamN: 5, lastAtk: '', clawSwing: 0,
     barName: 'LILITH, MOTHER OF FIRST DESIRE',
     title: 'L I L I T H', subtitle: 'The First Wife, the First Refusal',
 
@@ -494,20 +495,20 @@ function makeLilith() {
     start() {
       if (this.state !== 'dormant') return;
       this.state = 'intro'; this.t = 0; this.active = true; this.nameT = 3.6;
-      if (Game.bossLine) Game.bossLine('lilith', "At last. A heart that still beats. Come closer, poet — I only want to look at you.");
+      if (Game.bossLine) Game.bossLine('lilith', "At last — a heart that still beats. Come closer, poet. I only want to look at you.");
       AudioSys.sfx('roar'); AudioSys.setZone('boss'); Game.shake(7, 0.8);
       Game.arenaWalls = [
-        { x: LILITH_L - 40, y: 60, w: 40, h: 420, type: 'solid' },
-        { x: LILITH_R, y: 60, w: 40, h: 420, type: 'solid' },
+        { x: LILITH_L - 40, y: 40, w: 40, h: 440, type: 'solid' },
+        { x: LILITH_R, y: 40, w: 40, h: 440, type: 'solid' },
       ];
       AudioSys.sfx('gate');
     },
     reset() {
-      this.x = (LILITH_L + LILITH_R) / 2 - 28; this.y = LILITH_FLOOR - 150;
+      this.x = (LILITH_L + LILITH_R) / 2 - 30; this.y = LILITH_FLOOR - 152;
       this.vx = 0; this.vy = 0; this.alpha = 1; this.hp = this.maxHp;
       this.state = 'dormant'; this.t = 0; this.active = false; this.dead = false;
       this.finished = false; this.phase2 = false; this.attackBox = null;
-      Game.arenaWalls = []; Game.fruits = []; Game.lilithCorrupted = false;
+      Game.arenaWalls = []; Game.lilithCorrupted = false;
     },
     takeHit(dmg, dir) {
       if (this.dead || !this.active || this.state === 'intro' || this.state === 'vanish' || this.alpha < 0.4) return false;
@@ -516,7 +517,7 @@ function makeLilith() {
       if (!this.phase2 && this.hp <= this.maxHp * 0.5) {
         this.phase2 = true; this.state = 'corrupt'; this.t = 0; this.attackBox = null;
         Game.lilithCorrupted = true;
-        if (Game.bossLine) Game.bossLine('lilith', "You refuse me? Then see what refusal made of ME.");
+        if (Game.bossLine) Game.bossLine('lilith', "You refuse me? Then look upon what refusal MADE of me.");
         AudioSys.sfx('roar'); Game.shake(9, 1.0);
       }
       if (this.hp <= 0) this.die();
@@ -526,7 +527,7 @@ function makeLilith() {
       this.dead = true; this.state = 'dying'; this.t = 0; this.attackBox = null; this.vx = 0;
       AudioSys.sfx('spirit'); Game.freeze(0.3);
     },
-    tel(v) { return this.phase2 ? v * 0.74 : v; },
+    tel(v) { return this.phase2 ? v * 0.8 : v; },
 
     update(dt, pl) {
       this.animT += dt; this.flash -= dt; this.t += dt;
@@ -534,46 +535,52 @@ function makeLilith() {
       this.attackBox = null;
       const lcx = this.x + this.w / 2, lcy = this.y + this.h * 0.45;
       const px = pl.x + pl.w / 2, py = pl.y + pl.h / 2;
-      if (this.state !== 'kiss_appear' && this.state !== 'kiss_slash') this.facing = px > lcx ? 1 : -1;
+      if (this.state !== 'kiss_appear' && this.state !== 'kiss_slash' && this.state !== 'charge' && this.state !== 'dive')
+        this.facing = px > lcx ? 1 : -1;
+      const hoverHome = () => { this.y += (this.hoverY - this.y) * dt * 2.4; };
 
       switch (this.state) {
         case 'dormant': break;
-        case 'intro':
-          if (this.t > 1.9) { this.state = 'choose'; this.t = 0; }
-          break;
-        case 'corrupt': // brief enrage transformation
-          if (Math.random() < 0.7) Particles.spawn(lcx + rand(-30, 30), this.y + rand(0, this.h), { vx: rand(-40, 40), vy: rand(-80, -20), life: 0.6, size: 3, color: '#ff2840', glow: true });
+        case 'intro': if (this.t > 1.9) { this.state = 'choose'; this.t = 0; } break;
+        case 'corrupt':
+          if (Math.random() < 0.8) Particles.spawn(lcx + rand(-32, 32), this.y + rand(0, this.h), { vx: rand(-40, 40), vy: rand(-90, -20), life: 0.6, size: 3, color: '#ff2840', glow: true });
           if (this.t > 1.1) { this.state = 'choose'; this.t = 0; }
           break;
 
         case 'choose': {
-          this.y += (this.hoverY - this.y) * dt * 2;
-          if (this.t < 0.35) break;
+          hoverHome();
+          if (this.t < 0.3) break;
+          const d = Math.abs(px - lcx);
           const r = Math.random();
-          if (this.phase2 && r < 0.34) { this.state = 'tele_beams'; this.t = 0; }
-          else if (r < 0.34) { this.state = 'song'; this.t = 0; this.lastAtk = 'song'; }
-          else if (r < 0.7) { this.state = 'vanish'; this.t = 0; this.lastAtk = 'kiss'; }
-          else { this.state = 'fruit'; this.t = 0; }
+          if (this.phase2 && r < 0.20) this.state = 'tele_beams';
+          else if (r < 0.16) this.state = 'song';
+          else if (r < 0.32) { this.state = 'vanish'; this.lastAtk = 'kiss'; }
+          else if (r < 0.48) this.state = 'tele_claw';
+          else if (d > 140 && r < 0.64) this.state = 'tele_charge';
+          else if (r < 0.80) this.state = 'tele_dive';
+          else if (r < 0.90) this.state = 'tele_wail';
+          else this.state = 'summon';
+          this.t = 0;
           break;
         }
 
+        // --- Song: pulls Dante toward her; he must walk against it ---
         case 'song': {
-          // she sings; the player is pulled toward her and must walk away
-          this.y += (this.hoverY - this.y) * dt * 2;
-          const pull = this.phase2 ? 150 : 110;
+          hoverHome();
+          const pull = this.phase2 ? 160 : 116;
           if (pl.hitstun <= 0 && !pl.dead) pl.x += (lcx > px ? 1 : -1) * pull * dt;
-          if (Math.random() < 0.5) Particles.spawn(lcx + rand(-10, 10), this.y + 30, { vx: (px - lcx) * 0.4 * dt * 60 * 0.05, vy: 0, life: 0.6, size: 2.5, color: '#ff9ec0', glow: true });
-          if (this.t > this.tel(1.8)) { this.state = 'choose'; this.t = 0; }
+          if (Math.random() < 0.5) Particles.spawn(lcx + rand(-12, 12), this.y + 34, { vx: (px - lcx) * 0.05, vy: 0, life: 0.6, size: 2.5, color: '#ff9ec0', glow: true });
+          if (this.t > this.tel(1.7)) { this.state = 'choose'; this.t = 0; }
           break;
         }
 
+        // --- Kiss-slash: vanish in smoke, reappear behind, short slash ---
         case 'vanish':
           this.alpha = 1 - this.t / 0.4;
           if (Math.random() < 0.8) Particles.spawn(lcx + rand(-20, 20), this.y + rand(0, this.h), { vx: rand(-30, 30), vy: rand(-20, 20), life: 0.5, size: 3, color: '#c83a66', glow: true });
           if (this.t > 0.4) {
-            // reappear just behind the player for a kiss-slash
-            const side = (pl.facing >= 0) ? -1 : 1; // behind their back
-            this.x = clamp(px + side * 56 - this.w / 2, LILITH_L + 20, LILITH_R - this.w - 20);
+            const side = (pl.facing >= 0) ? -1 : 1;
+            this.x = clamp(px + side * 60 - this.w / 2, LILITH_L + 20, LILITH_R - this.w - 20);
             this.y = LILITH_FLOOR - this.h - 4;
             this.facing = px > (this.x + this.w / 2) ? 1 : -1;
             this.state = 'kiss_appear'; this.t = 0; this.alpha = 0;
@@ -582,43 +589,108 @@ function makeLilith() {
           break;
         case 'kiss_appear':
           this.alpha = Math.min(1, this.t / 0.22);
-          if (this.t > 0.26) { this.state = 'kiss_slash'; this.t = 0; AudioSys.sfx('swing'); Game.addFx('slash', this.x + this.w / 2 + this.facing * 30, this.y + 50, { flip: this.facing, rot: 0 }); }
+          if (this.t > 0.26) { this.state = 'kiss_slash'; this.t = 0; AudioSys.sfx('swing'); Game.addFx('slash', this.x + this.w / 2 + this.facing * 34, this.y + 54, { flip: this.facing, rot: 0 }); }
           break;
-        case 'kiss_slash': {
-          if (this.t < 0.18) { const bx = this.facing > 0 ? this.x + this.w - 6 : this.x - 52; this.attackBox = { x: bx, y: this.y + 30, w: 58, h: 60, dmg: 1, kb: 300 }; }
+        case 'kiss_slash':
+          if (this.t < 0.18) { const bx = this.facing > 0 ? this.x + this.w - 6 : this.x - 56; this.attackBox = { x: bx, y: this.y + 32, w: 62, h: 66, dmg: 1, kb: 320 }; }
           if (this.t > this.tel(0.5)) { this.state = 'choose'; this.t = 0; }
           break;
-        }
 
-        case 'fruit':
-          this.y += (this.hoverY - this.y) * dt * 2;
-          if (this.t > 0.5 && !this._dropped) {
-            this._dropped = true;
-            const count = this.phase2 ? 5 : 4;
-            for (let i = 0; i < count; i++) {
-              const fx = clamp(px + rand(-220, 220), LILITH_L + 40, LILITH_R - 40);
-              Game.fruits.push(makeFruit(fx, Math.random() < 0.5 ? 'heal' : 'poison'));
+        // --- Claw rake: a fan of bladed claw-bolts ---
+        case 'tele_claw':
+          hoverHome();
+          this.clawSwing = Math.min(1, this.t / this.tel(0.5));
+          if (this.t > this.tel(0.5)) {
+            this.state = 'choose'; this.t = 0;
+            const n = this.phase2 ? 4 : 3;
+            const base = Math.atan2(py - (this.y + 50), px - lcx);
+            for (let i = 0; i < n; i++) {
+              const a = base + (i - (n - 1) / 2) * 0.26, sp = 230;
+              Game.shots.push(makeShot(lcx + this.facing * 20, this.y + 50, Math.cos(a) * sp, Math.sin(a) * sp, 'soulbolt', 'enemy', 1));
             }
-            AudioSys.sfx('orb');
+            AudioSys.sfx('thrust');
           }
-          if (this.t > 1.0) { this._dropped = false; this.state = 'choose'; this.t = 0; }
           break;
 
+        // --- Charm-lunge: a swift horizontal dash with a claw box ---
+        case 'tele_charge':
+          hoverHome();
+          this.facing = px > lcx ? 1 : -1;
+          if (Math.random() < 0.6) Particles.spawn(lcx - this.facing * 26, this.y + rand(30, 110), { vx: -this.facing * rand(40, 110), vy: 0, life: 0.4, size: 3, color: '#ff9ec0', glow: true });
+          if (this.t > this.tel(0.6)) { this.state = 'charge'; this.t = 0; this.vx = this.facing * 470; this.lastAtk = 'charge'; AudioSys.sfx('dash'); }
+          break;
+        case 'charge':
+          this.x += this.vx * dt;
+          this.attackBox = { x: this.x - 16, y: this.y + 28, w: this.w + 32, h: this.h - 40, dmg: 1, kb: 360 };
+          if (Math.random() < 0.7) Particles.spawn(this.x + this.w / 2 - this.facing * 30, this.y + rand(30, 110), { vx: -this.vx * 0.1, vy: rand(-20, 10), life: 0.35, size: 3, color: '#e85a78', glow: true });
+          if (this.x < LILITH_L + 20 || this.x + this.w > LILITH_R - 20 || this.t > 0.85) { this.vx = 0; this.state = 'choose'; this.t = 0; }
+          break;
+
+        // --- Dive-slam: rise, then plunge to the player and slam ---
+        case 'tele_dive':
+          this.y += (this.hoverY - 60 - this.y) * dt * 4; // rise
+          this.facing = px > lcx ? 1 : -1;
+          if (this.t > this.tel(0.6)) { this.state = 'dive'; this.t = 0; this._diveX = clamp(px - this.w / 2, LILITH_L + 30, LILITH_R - this.w - 30); AudioSys.sfx('stomp'); }
+          break;
+        case 'dive':
+          this.x += (this._diveX - this.x) * dt * 6;
+          this.y += 1200 * dt;
+          if (this.y >= LILITH_FLOOR - this.h) {
+            this.y = LILITH_FLOOR - this.h;
+            this.state = 'slam'; this.t = 0;
+            Game.shake(8, 0.4); AudioSys.sfx('slam');
+            Particles.burst(this.x + this.w / 2, LILITH_FLOOR, '#e85a78', 22, 280, { life: 0.5 });
+            Game.waves.push(makeWaveAt(this.x + this.w / 2 - 14, LILITH_FLOOR, -1, LILITH_L, LILITH_R));
+            Game.waves.push(makeWaveAt(this.x + this.w / 2 + 14, LILITH_FLOOR, 1, LILITH_L, LILITH_R));
+          }
+          break;
+        case 'slam':
+          this.attackBox = this.t < 0.12 ? { x: this.x - 18, y: this.y + this.h - 44, w: this.w + 36, h: 48, dmg: 1, kb: 300 } : null;
+          if (this.t > 0.5) { this.state = 'choose'; this.t = 0; }
+          break;
+
+        // --- Shriek nova: radial bolts ---
+        case 'tele_wail':
+          hoverHome();
+          if (Math.random() < 0.6) Particles.spawn(lcx, lcy, { vx: rand(-50, 50), vy: rand(-50, 50), life: 0.4, size: 3, color: '#ff6a9a', glow: true });
+          if (this.t > this.tel(0.7)) {
+            this.state = 'choose'; this.t = 0;
+            const n = this.phase2 ? 12 : 9;
+            for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, sp = 175; Game.shots.push(makeShot(lcx, lcy, Math.cos(a) * sp, Math.sin(a) * sp, 'soulbolt', 'enemy', 1)); }
+            AudioSys.sfx('shriek');
+          }
+          break;
+
+        // --- Summon thralls ---
+        case 'summon':
+          hoverHome();
+          if (this.t > this.tel(0.6)) {
+            this.state = 'choose'; this.t = 0;
+            const cnt = this.phase2 ? 2 : 1;
+            for (let i = 0; i < cnt; i++) {
+              const sx = clamp(lcx + rand(-200, 200), LILITH_L + 40, LILITH_R - 40);
+              if (Math.random() < 0.5) Game.enemies.push(spawnEnemy({ type: 'succubus', x: sx, y: 220, min: LILITH_L + 30, max: LILITH_R - 30 }));
+              else Game.enemies.push(spawnEnemy({ type: 'imp', x: sx, gy: LILITH_FLOOR, min: LILITH_L + 20, max: LILITH_R - 20 }));
+            }
+            AudioSys.sfx('shriek');
+          }
+          break;
+
+        // --- Corrupted-Eden rotating red beams (phase 2) ---
         case 'tele_beams':
-          this.y += (this.hoverY - this.y) * dt * 2;
+          hoverHome();
           if (Math.random() < 0.6) Particles.spawn(lcx, lcy, { vx: rand(-60, 60), vy: rand(-60, 60), life: 0.4, size: 3, color: '#ff2030', glow: true });
           if (this.t > 0.9) { this.state = 'beams'; this.t = 0; this.beamAng = Math.random() * 6.28; AudioSys.sfx('shriek'); }
           break;
         case 'beams': {
-          // halo split into rotating red beams (readable, telegraphed above)
-          this.beamAng += dt * 1.3;
+          this.beamAng += dt * 1.25;
           const ang = Math.atan2(py - lcy, px - lcx);
           const dist = Math.hypot(px - lcx, py - lcy);
           if (dist > 46 && pl.invuln <= 0) {
             for (let k = 0; k < this.beamN; k++) {
-              let ba = this.beamAng + k * (Math.PI * 2 / this.beamN);
-              let d = Math.atan2(Math.sin(ang - ba), Math.cos(ang - ba));
-              if (Math.abs(d) < 0.11) { pl.hurt(1, lcx); break; }
+              const ba = this.beamAng + k * (Math.PI * 2 / this.beamN);
+              const dd = Math.atan2(Math.sin(ang - ba), Math.cos(ang - ba));
+              if (Math.abs(dd) < 0.11) { pl.hurt(1, lcx); break; }
             }
           }
           if (this.t > 2.4) { this.state = 'choose'; this.t = 0; }
@@ -627,20 +699,15 @@ function makeLilith() {
 
         case 'dying': {
           this.alpha = clamp(1 - this.t / 2.6, 0, 1);
-          // she does not explode — she dissolves into red moths
-          if (Math.random() < 0.9) Particles.spawn(lcx + rand(-20, 20), this.y + rand(0, this.h), { vx: rand(-50, 50), vy: rand(-80, -10), life: rand(0.8, 1.6), size: rand(2, 4), color: Math.random() < 0.5 ? '#c81830' : '#e85a78', glow: true, grav: -30 });
-          if (this.t > 0.6 && !this._line1) { this._line1 = true; if (Game.bossLine) Game.bossLine('lilith', "Mmm... you truly won't be tempted. How rare. How... disappointing."); }
-          if (this.t > 2.0 && !this._line2) { this._line2 = true; if (Game.bossLine) Game.bossLine('lilith', "Ask your Beatrice what she dreamed of, down here in the dark... and whose name. Father will be so pleased you came this far."); }
-          if (this.t > 2.6 && !this.finished) {
-            this.finished = true;
-            Game.lilithCorrupted = false;
-            Game.onLilithDead();
-          }
+          if (Math.random() < 0.9) Particles.spawn(lcx + rand(-22, 22), this.y + rand(0, this.h), { vx: rand(-50, 50), vy: rand(-80, -10), life: rand(0.8, 1.6), size: rand(2, 4), color: Math.random() < 0.5 ? '#c81830' : '#e85a78', glow: true, grav: -30 });
+          if (this.t > 0.6 && !this._l1) { this._l1 = true; if (Game.bossLine) Game.bossLine('lilith', "Mmm... you truly won't be tempted. How rare. How... disappointing."); }
+          if (this.t > 2.0 && !this._l2) { this._l2 = true; if (Game.bossLine) Game.bossLine('lilith', "Ask your Beatrice what she dreamed of, in the dark... and whose name. Father will be so pleased you came this far."); }
+          if (this.t > 2.6 && !this.finished) { this.finished = true; Game.lilithCorrupted = false; Game.onLilithDead(); }
           break;
         }
       }
 
-      // her attacks hurt; her body does not (per design)
+      // only her attacks hurt; her body does not
       if (!this.dead && this.active && this.state !== 'intro' && this.alpha > 0.5) {
         if (this.attackBox && rectsOverlap(this.attackBox, pl)) pl.hurt(this.attackBox.dmg, this.x + this.w / 2);
       }
@@ -650,16 +717,16 @@ function makeLilith() {
       if (this.finished) return;
       const g = ctx;
       const sx = this.x + this.w / 2 - camX, sy = this.y + this.h - camY;
-      if (sx < -260 || sx > VW + 260) return;
-      // telegraph / active beams drawn from her centre
+      if (sx < -280 || sx > VW + 280) return;
+      // rotating red beams from her halo (phase 2)
       if (this.state === 'beams' || this.state === 'tele_beams') {
         const lcx = this.x + this.w / 2 - camX, lcy = this.y + this.h * 0.45 - camY;
         const active = this.state === 'beams';
-        const len = active ? 900 : 260 * Math.min(1, this.t / 0.9);
+        const len = active ? 1000 : 280 * Math.min(1, this.t / 0.9);
         g.save();
         for (let k = 0; k < this.beamN; k++) {
           const ba = (active ? this.beamAng : 0) + k * (Math.PI * 2 / this.beamN);
-          g.strokeStyle = active ? 'rgba(255,40,56,0.85)' : 'rgba(255,60,80,0.35)';
+          g.strokeStyle = active ? 'rgba(255,40,56,0.85)' : 'rgba(255,60,80,0.32)';
           g.lineWidth = active ? 7 : 4;
           g.beginPath(); g.moveTo(lcx, lcy); g.lineTo(lcx + Math.cos(ba) * len, lcy + Math.sin(ba) * len); g.stroke();
         }
@@ -669,42 +736,82 @@ function makeLilith() {
       g.translate(sx, sy);
       g.globalAlpha = clamp(this.alpha, 0, 1) * (this.state === 'dying' ? clamp(1 - this.t / 2.6, 0, 1) : 1);
       g.scale(this.facing, 1);
-      const skin = this.flash > 0 ? '#fff' : '#cf7a82';
-      const gown = this.flash > 0 ? '#fff' : (this.phase2 ? '#3a0814' : '#8a1840');
-      const hair = this.flash > 0 ? '#fff' : '#1a0610';
-      const wing = this.phase2 ? '#0a0408' : '#5a1230';
+      const skin = this.flash > 0 ? '#fff' : (this.phase2 ? '#7a3a52' : '#c87a82');
+      const gown = this.flash > 0 ? '#fff' : (this.phase2 ? '#2a0610' : '#7a1838');
+      const hair = this.flash > 0 ? '#fff' : '#150410';
+      const wing = this.phase2 ? '#0a0307' : '#4a1028';
+      const gold = '#caa84a';
       const float = Math.sin(time * 1.6) * 5;
-      // wings: feathered in P1, black angel wings in P2
+
+      // wings (big; feathered P1, black angel wings P2)
       g.fillStyle = wing;
       for (const s of [-1, 1]) {
-        g.save(); g.scale(s, 1); g.rotate(-0.3 + Math.sin(time * 3) * 0.1);
-        g.beginPath(); g.moveTo(0, -80 + float);
-        if (this.phase2) { g.quadraticCurveTo(54, -120, 70, -54); g.quadraticCurveTo(48, -70, 30, -50); g.quadraticCurveTo(50, -40, 24, -36); }
-        else { g.quadraticCurveTo(46, -104, 60, -60); g.quadraticCurveTo(40, -70, 22, -54); }
+        g.save(); g.scale(s, 1); g.rotate(-0.32 + Math.sin(time * 2.6) * 0.12);
+        g.beginPath(); g.moveTo(0, -86 + float);
+        if (this.phase2) { g.quadraticCurveTo(70, -150, 92, -64); g.quadraticCurveTo(60, -86, 38, -58); g.quadraticCurveTo(64, -46, 30, -40); }
+        else { g.quadraticCurveTo(58, -128, 76, -70); g.quadraticCurveTo(50, -86, 28, -62); }
         g.closePath(); g.fill();
         g.restore();
       }
-      // flowing gown
+      // flowing gown / lower body
       g.fillStyle = gown;
-      g.beginPath(); g.moveTo(0, -104 + float);
-      g.quadraticCurveTo(26, -70, 18, -2); g.lineTo(-18, -2); g.quadraticCurveTo(-26, -70, 0, -104 + float);
+      g.beginPath(); g.moveTo(0, -112 + float);
+      g.quadraticCurveTo(28, -72, 20, -2); g.lineTo(-20, -2); g.quadraticCurveTo(-28, -72, 0, -112 + float);
       g.closePath(); g.fill();
-      // bodice highlight
-      g.fillStyle = skin; g.beginPath(); g.ellipse(0, -82 + float, 11, 16, 0, 0, 7); g.fill();
-      g.fillStyle = gown; g.beginPath(); g.ellipse(0, -74 + float, 13, 12, 0, 0, 7); g.fill();
-      // head + long hair
-      g.fillStyle = skin; g.beginPath(); g.arc(0, -114 + float, 9, 0, 7); g.fill();
+      // torso + gold girdle
+      g.fillStyle = skin; g.beginPath(); g.ellipse(0, -90 + float, 12, 18, 0, 0, 7); g.fill();
+      g.fillStyle = gown; g.beginPath(); g.ellipse(0, -80 + float, 14, 13, 0, 0, 7); g.fill();
+      g.fillStyle = gold; g.fillRect(-13, -64 + float, 26, 5);
+      // gold armbands
+      g.fillStyle = gold; g.fillRect(-20, -86 + float, 7, 5); g.fillRect(13, -86 + float, 7, 5);
+      // head + wild hair + crown
+      g.fillStyle = skin; g.beginPath(); g.arc(0, -118 + float, 9.5, 0, 7); g.fill();
       g.fillStyle = hair;
-      g.beginPath(); g.moveTo(-8, -120 + float); g.quadraticCurveTo(-20, -90, -12, -40); g.quadraticCurveTo(-6, -80, -6, -116 + float); g.closePath(); g.fill();
-      g.beginPath(); g.moveTo(8, -120 + float); g.quadraticCurveTo(18, -92, 12, -46); g.quadraticCurveTo(6, -82, 6, -116 + float); g.closePath(); g.fill();
-      // eyes (glowing red in P2 / when singing)
+      g.beginPath(); g.moveTo(-8, -124 + float); g.quadraticCurveTo(-24, -92, -14, -36); g.quadraticCurveTo(-6, -82, -6, -120 + float); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(8, -124 + float); g.quadraticCurveTo(22, -94, 14, -42); g.quadraticCurveTo(6, -84, 6, -120 + float); g.closePath(); g.fill();
       g.fillStyle = (this.phase2 || this.state === 'song') ? '#ff2840' : '#3a1018';
-      g.fillRect(2, -116 + float, 3, 2.5);
-      // crown / halo (splits in P2)
-      if (this.phase2) { g.strokeStyle = '#ff2030'; g.lineWidth = 2; g.beginPath(); g.arc(0, -126 + float, 11, -0.6, Math.PI + 0.6); g.stroke(); }
-      else { g.strokeStyle = '#caa84a'; g.lineWidth = 2; g.beginPath(); g.arc(0, -128 + float, 10, Math.PI, 0); g.stroke(); }
+      g.fillRect(2, -120 + float, 3, 2.5);
+      // jewelled crown / headdress
+      g.fillStyle = gold;
+      g.beginPath(); g.moveTo(-9, -126 + float); g.lineTo(-6, -134 + float); g.lineTo(-3, -127 + float); g.lineTo(0, -136 + float); g.lineTo(3, -127 + float); g.lineTo(6, -134 + float); g.lineTo(9, -126 + float); g.closePath(); g.fill();
+      // THE signature: long bladed claw-fingers on her forward hand
+      g.save();
+      g.translate(14, -86 + float);
+      const cl = (this.state === 'tele_claw') ? this.clawSwing : 0;
+      g.rotate(-0.2 + cl * 0.5 + Math.sin(time * 2) * 0.05);
+      g.strokeStyle = this.flash > 0 ? '#fff' : '#d8d2dc'; g.lineWidth = 2.5; g.lineCap = 'round';
+      for (let i = 0; i < 4; i++) {
+        const a = -0.5 + i * 0.34, len = 30 + i * 6;
+        g.beginPath(); g.moveTo(0, 0);
+        g.quadraticCurveTo(Math.cos(a) * len * 0.6 + 6, Math.sin(a) * len * 0.6, Math.cos(a) * len + 8, Math.sin(a) * len - 6);
+        g.stroke();
+        g.fillStyle = gold; g.beginPath(); g.arc(Math.cos(a) * len * 0.5 + 4, Math.sin(a) * len * 0.5, 2, 0, 7); g.fill(); // gold finger-ring joints
+      }
+      g.lineCap = 'butt';
+      g.restore();
       g.globalAlpha = 1;
       g.restore();
+    },
+  };
+}
+
+// arena-bounded ground shockwave (used by Lilith's dive-slam)
+function makeWaveAt(x, floorY, dir, lo, hi) {
+  return {
+    x, y: floorY - 30, w: 20, h: 30, dir, dead: false, speed: 320, life: 4,
+    rect() { return this; },
+    update(dt, pl) {
+      this.x += this.dir * this.speed * dt; this.life -= dt;
+      if (this.x < lo - 10 || this.x + this.w > hi + 10 || this.life <= 0) this.dead = true;
+      if (Math.random() < 0.8) Particles.spawn(this.x + rand(0, this.w), this.y + rand(6, 28), { vx: rand(-20, 20), vy: rand(-120, -50), life: 0.3, size: 3, color: '#ff5a7a', glow: true });
+      if (rectsOverlap(this, pl)) pl.hurt(1, this.x + this.w / 2);
+    },
+    draw(camX, camY, time) {
+      const g = ctx, sx = this.x - camX, sy = this.y - camY;
+      g.fillStyle = 'rgba(255,70,110,0.85)';
+      g.beginPath(); g.moveTo(sx, sy + 30); g.lineTo(sx + 10, sy + Math.sin(time * 30) * 3); g.lineTo(sx + 20, sy + 30); g.closePath(); g.fill();
+      g.fillStyle = 'rgba(255,180,200,0.9)';
+      g.beginPath(); g.moveTo(sx + 4, sy + 30); g.lineTo(sx + 10, sy + 10); g.lineTo(sx + 16, sy + 30); g.closePath(); g.fill();
     },
   };
 }

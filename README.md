@@ -106,7 +106,7 @@ Until one is set, signups are stored locally only.
 The game logic is exercised headlessly with stubbed browser APIs:
 
 ```
-node test/sim.js            # no-crash run, all boss fights, ending, restart
+node test/sim.js            # no-crash run, all boss fights, "to be continued"
 node test/navbot.js --pure  # bot traverses the whole world incl. Lust → Lilith
 node test/mobile.js         # orientation / fullscreen-fill / touch layout
 node test/newsletter.js     # signup validation, store, in-game trigger, live POST

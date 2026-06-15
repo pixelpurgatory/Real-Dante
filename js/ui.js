@@ -469,6 +469,34 @@ const Screens = {
     ctx.textAlign = 'left';
   },
 
+  drawContinued(t, stats, time) {
+    const a = clamp(t / 1.6, 0, 1);
+    ctx.fillStyle = `rgba(10,2,8,${a * 0.9})`;
+    ctx.fillRect(0, 0, VW, VH);
+    if (a < 0.5) return;
+    ctx.save();
+    ctx.globalAlpha = clamp((t - 0.8) / 1.0, 0, 1);
+    ctx.textAlign = 'center';
+    const grad = ctx.createLinearGradient(0, 190, 0, 250);
+    grad.addColorStop(0, '#f6d6e0'); grad.addColorStop(1, '#a83a58');
+    ctx.fillStyle = grad;
+    ctx.font = '42px Georgia';
+    ctx.shadowColor = '#ff2840'; ctx.shadowBlur = 18;
+    ctx.fillText('TO BE CONTINUED…', VW / 2, 232);
+    ctx.shadowBlur = 0;
+    ctx.font = 'italic 16px Georgia';
+    ctx.fillStyle = '#c8b8e0';
+    ctx.fillText('Lilith is fallen. The deeper circles still wait — Greed, Wrath, the frozen pit, and Him.', VW / 2, 274);
+    ctx.font = '13px Georgia';
+    ctx.fillStyle = '#9a8cb8';
+    const mm = Math.floor(stats.time / 60), ss = Math.floor(stats.time % 60);
+    ctx.fillText(`Time ${mm}:${String(ss).padStart(2, '0')}   ·   Deaths ${stats.deaths}   ·   Souls returned ${stats.kills}`, VW / 2, 330);
+    ctx.fillStyle = `rgba(244,236,216,${0.5 + Math.sin(time * 3) * 0.3})`;
+    ctx.fillText('PRESS  R  ·  OR  TAP  TO  RETURN', VW / 2, 378);
+    ctx.restore();
+    ctx.textAlign = 'left';
+  },
+
   drawPause() {
     ctx.fillStyle = 'rgba(8,4,14,0.7)';
     ctx.fillRect(0, 0, VW, VH);

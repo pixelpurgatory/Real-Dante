@@ -90,28 +90,83 @@ const BG = {
     }
     this.circlesTower(g, tx, 478);
 
-    // --- lust: a purple storm wall + distant floating ruins of Eden
-    const lx0 = 0.25 * 16800 + 480, lspan = 0.25 * 6200 + 600;
-    for (let i = 0; i < 4; i++) {
-      const gy2 = 70 + i * 88;
-      const grd = g.createLinearGradient(0, gy2, 0, gy2 + 80);
-      grd.addColorStop(0, 'rgba(120,30,80,0)');
-      grd.addColorStop(0.5, 'rgba(150,46,96,0.30)');
-      grd.addColorStop(1, 'rgba(120,30,80,0)');
+    // --- lust: the purple storm of desire over a drowned Eden ---
+    const P = this.FAR_P;
+    const lx0 = P * (typeof LUST_START !== 'undefined' ? LUST_START : 16800) + 480;
+    const lx1 = P * (typeof LUST_END !== 'undefined' ? LUST_END : 30800) + 480;
+    const lspan = lx1 - lx0;
+    // banded violet storm clouds
+    for (let i = 0; i < 6; i++) {
+      const gy2 = 40 + i * 70;
+      const grd = g.createLinearGradient(0, gy2, 0, gy2 + 84);
+      grd.addColorStop(0, 'rgba(108,28,84,0)');
+      grd.addColorStop(0.5, `rgba(${150 - i * 8},${40 + i * 4},${100 - i * 6},0.34)`);
+      grd.addColorStop(1, 'rgba(108,28,84,0)');
       g.fillStyle = grd;
-      g.fillRect(lx0 - 200, gy2 + Math.sin(i) * 10, lspan, 80);
+      g.fillRect(lx0 - 300, gy2 + Math.sin(i * 1.3) * 12, lspan + 600, 84);
     }
-    // a sullen red moon hanging in the storm
-    const lmx = lx0 + lspan * 0.5, lmy = 120;
-    const lg = g.createRadialGradient(lmx, lmy, 10, lmx, lmy, 150);
-    lg.addColorStop(0, 'rgba(255,70,110,0.5)'); lg.addColorStop(1, 'rgba(255,70,110,0)');
-    g.fillStyle = lg; g.fillRect(lmx - 150, lmy - 150, 300, 300);
-    g.fillStyle = '#c83a58'; g.beginPath(); g.arc(lmx, lmy, 40, 0, 7); g.fill();
-    // distant floating broken colonnade
+    // sullen red moons hanging in the tempest
+    for (const mx of [lx0 + lspan * 0.32, lx0 + lspan * 0.74]) {
+      const lg = g.createRadialGradient(mx, 110, 10, mx, 110, 160);
+      lg.addColorStop(0, 'rgba(255,70,110,0.5)'); lg.addColorStop(1, 'rgba(255,70,110,0)');
+      g.fillStyle = lg; g.fillRect(mx - 160, -50, 320, 320);
+      g.fillStyle = '#c2384f'; g.beginPath(); g.arc(mx, 110, 38, 0, 7); g.fill();
+    }
+    // the great bleeding Tree of Souls (centrepiece, like the reference)
+    this.bleedingTree(g, lx0 + lspan * 0.5, 478);
+    // a long arcade of gothic arches receding down the road
+    for (let i = 0; i * 360 < lspan; i++) {
+      const bx = lx0 + 60 + i * 360;
+      this.gothArch(g, bx, 476, 60, 150 + (i % 3) * 30, '#2a0e30');
+    }
+    // a few floating broken columns adrift in the storm
+    for (let i = 0; i * 520 < lspan; i++) {
+      const bx = lx0 + 200 + i * 520;
+      const fy = 320 + Math.sin(i * 1.7) * 70;
+      this.brokenColumn(g, bx, fy, 15, 64 + (i % 3) * 24, '#3a1640');
+    }
+  },
+
+  // a tall gothic arch silhouette (Lust colonnade)
+  gothArch(g, x, gy, w, h, c) {
+    g.fillStyle = c;
+    g.fillRect(x - w / 2, gy - h, 9, h);
+    g.fillRect(x + w / 2 - 9, gy - h, 9, h);
+    g.beginPath();
+    g.moveTo(x - w / 2, gy - h);
+    g.quadraticCurveTo(x, gy - h - w * 0.7, x + w / 2, gy - h);
+    g.lineTo(x + w / 2 - 9, gy - h);
+    g.quadraticCurveTo(x, gy - h - w * 0.4, x - w / 2 + 9, gy - h);
+    g.closePath(); g.fill();
+  },
+
+  // the immense bleeding tree of bodies over the river of blood
+  bleedingTree(g, cx, gy) {
+    // crimson halo behind the canopy
+    const hg = g.createRadialGradient(cx, gy - 250, 30, cx, gy - 250, 280);
+    hg.addColorStop(0, 'rgba(220,40,40,0.55)'); hg.addColorStop(1, 'rgba(220,40,40,0)');
+    g.fillStyle = hg; g.fillRect(cx - 280, gy - 520, 560, 540);
+    // mound + trunk
+    g.fillStyle = '#241018';
+    g.beginPath(); g.moveTo(cx - 150, gy); g.quadraticCurveTo(cx, gy - 140, cx + 150, gy); g.closePath(); g.fill();
+    g.fillStyle = '#1a0a12';
+    g.fillRect(cx - 20, gy - 320, 40, 320);
+    // gnarled branches
+    g.strokeStyle = '#1a0a12'; g.lineWidth = 9; g.lineCap = 'round';
+    const rngB = makeRng(909);
     for (let i = 0; i < 12; i++) {
-      const bx = 0.25 * (16950 + i * 460) + 480;
-      const fy = 360 + Math.sin(i * 1.7) * 60;
-      this.brokenColumn(g, bx, fy, 16, 70 + (i % 3) * 28, '#3a1640');
+      const a = -Math.PI / 2 + (rngB() - 0.5) * 2.4;
+      const len = 120 + rngB() * 130, by = gy - 250 - rngB() * 60;
+      g.lineWidth = 4 + rngB() * 5;
+      g.beginPath(); g.moveTo(cx, by);
+      g.quadraticCurveTo(cx + Math.cos(a) * len * 0.6, by + Math.sin(a) * len * 0.6, cx + Math.cos(a) * len, by + Math.sin(a) * len);
+      g.stroke();
+    }
+    g.lineCap = 'butt';
+    // sparse blood-red foliage
+    g.fillStyle = 'rgba(150,20,30,0.5)';
+    for (let i = 0; i < 26; i++) {
+      g.beginPath(); g.arc(cx + (rngB() - 0.5) * 320, gy - 230 - rngB() * 200, 14 + rngB() * 22, 0, 7); g.fill();
     }
   },
 
@@ -407,10 +462,34 @@ const BG = {
   // ----------------------------------------------------------
   // DECO LAYER (parallax 1, behind terrain): houses, gate, props
   // ----------------------------------------------------------
+  // Bake a wide layer into horizontal chunks (each <= CHUNK_W) so no single
+  // canvas exceeds the iOS Safari area limit (~16.7M px). paint(g) draws in
+  // world coordinates (with the usual +100 content offset).
+  bakeChunked(paint, totalW, h) {
+    const CHUNK_W = 3800, chunks = [];
+    for (let x0 = 0; x0 < totalW; x0 += CHUNK_W) {
+      const w = Math.min(CHUNK_W, totalW - x0);
+      const c = this.mkCanvas(w, h);
+      const g = c.getContext('2d');
+      g.translate(100 - x0, 0);
+      paint(g);
+      chunks.push({ canvas: c, x0, w });
+    }
+    return chunks;
+  },
+  blitChunks(chunks, camX, drawH) {
+    const off = camX + 100;
+    for (const ch of chunks) {
+      const sx = ch.x0 - off;
+      if (sx > VW || sx + ch.w < 0) continue;
+      ctx.drawImage(ch.canvas, 0, 0, ch.w, drawH, Math.round(sx), 0, ch.w, drawH);
+    }
+  },
+
   bakeDeco() {
-    this.deco = this.mkCanvas(WORLD_W + 200, VH);
-    const g = this.deco.getContext('2d');
-    g.translate(100, 0); // allow content at slightly negative world x
+    this.decoChunks = this.bakeChunked(g => this.paintDeco(g), WORLD_W + 200, VH);
+  },
+  paintDeco(g) {
     const rng = makeRng(555);
 
     // village houses along shore A & B
@@ -479,20 +558,29 @@ const BG = {
       g.fillRect(x, 412 + rng() * 8, 4, 12);
     }
 
-    // ---- Lust: broken Eden — statues, silk curtains, beds of red flowers ----
-    this.statue(g, 17000, 442, '#3a1c34');
-    this.brokenColumn(g, 17260, 442, 22, 120, '#3a1640');
-    this.silkCurtain(g, 17700, 300, 70, 150);
-    this.statue(g, 18560, 442, '#3a1c34');
-    this.brokenColumn(g, 19120, 442, 24, 130, '#3a1640');
-    this.silkCurtain(g, 19700, 290, 80, 160);
-    this.brokenColumn(g, 20240, 442, 22, 100, '#3a1640');
-    this.statue(g, 20620, 442, '#3a1c34');
-    this.brokenColumn(g, 21900, 442, 26, 150, '#2a1226');
-    this.brokenColumn(g, 22300, 442, 26, 150, '#2a1226');
-    // beds of red flowers along the Lust ground
-    for (let x = 16820; x < 22900; x += 12) {
-      if (x > 21020 && x < 22760) continue; // keep Lilith's floor clear
+    // ---- Lust: broken Eden — statues, silk curtains, columns, flower beds ----
+    const lStart = (typeof LUST_START !== 'undefined' ? LUST_START : 16800);
+    const lEnd = (typeof LUST_END !== 'undefined' ? LUST_END : 30800);
+    const arenaL = (typeof LILITH_L !== 'undefined' && LILITH_L) ? LILITH_L - 60 : lEnd;
+    // a faint river-of-blood sheen pooled along the ground
+    const rg = g.createLinearGradient(0, 432, 0, 470);
+    rg.addColorStop(0, 'rgba(150,20,34,0.0)'); rg.addColorStop(1, 'rgba(150,20,34,0.5)');
+    g.fillStyle = rg; g.fillRect(lStart, 432, lEnd - lStart, 40);
+    // props spaced along the road, ending before the arena
+    let pi = 0;
+    for (let x = lStart + 180; x < arenaL - 120; x += 240 + rng() * 160) {
+      const k = pi % 4;
+      if (k === 0) this.statue(g, x, 442, '#3a1c34');
+      else if (k === 1) this.brokenColumn(g, x, 442, 22 + rng() * 6, 90 + rng() * 70, '#3a1640');
+      else if (k === 2) this.silkCurtain(g, x, 286 + rng() * 30, 64 + rng() * 28, 150 + rng() * 40);
+      else this.gothArch(g, x, 442, 64, 150 + rng() * 40, '#2a0e30');
+      pi++;
+    }
+    // pillars flanking Lilith's arena
+    this.brokenColumn(g, arenaL - 40, 442, 28, 170, '#2a1226');
+    this.brokenColumn(g, (typeof LILITH_R !== 'undefined' && LILITH_R ? LILITH_R + 60 : lEnd - 60), 442, 28, 170, '#2a1226');
+    // beds of red flowers along the Lust ground (kept off Lilith's floor)
+    for (let x = lStart + 20; x < arenaL - 40; x += 12) {
       if (rng() < 0.5) {
         const fy = 440;
         g.strokeStyle = '#3a5a2e'; g.lineWidth = 1.5;
@@ -666,9 +754,9 @@ const BG = {
   // TERRAIN LAYER (parallax 1): the platforms themselves
   // ----------------------------------------------------------
   bakeTerrain() {
-    this.terrain = this.mkCanvas(WORLD_W + 200, VH + 200);
-    const g = this.terrain.getContext('2d');
-    g.translate(100, 0); // same offset as deco layer
+    this.terrainChunks = this.bakeChunked(g => this.paintTerrain(g), WORLD_W + 200, VH + 200);
+  },
+  paintTerrain(g) {
     const rng = makeRng(2024);
 
     for (const p of PLATFORMS) {
@@ -978,9 +1066,8 @@ const BG = {
     this.drawWater(camX, time);
 
     // deco + terrain (world-locked)
-    const tx = clamp(camX + 100, 0, this.deco.width - VW);
-    ctx.drawImage(this.deco, tx, 0, VW, VH, 0, 0, VW, VH);
-    ctx.drawImage(this.terrain, tx, 0, VW, Math.min(VH, this.terrain.height), 0, 0, VW, Math.min(VH, this.terrain.height));
+    this.blitChunks(this.decoChunks, camX, VH);
+    this.blitChunks(this.terrainChunks, camX, VH);
 
     this.updateMotes(dt, camX, pal);
     this.drawMotes(camX, pal, time);

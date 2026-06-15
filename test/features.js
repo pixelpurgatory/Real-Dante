@@ -114,24 +114,32 @@ for(let i=0;i<6000 && !Game.deathDefeated;i++){ if(Game.player.dead){Game.player
 ok(dP3,'Death reaches phase 3 (40% HP)');
 ok(Game.deathDefeated,'Death can be defeated');
 
-console.log('--- Lilith (Lust boss) ---');
+console.log('--- Lilith (Lust boss, remade) ---');
 Game.lilithDefeated=false;
+ok(Game.lilithBoss.maxHp===60,'Lilith HP raised to 60 (maxHp='+Game.lilithBoss.maxHp+')');
 Game.lilithBoss.reset(); Game.lilithBoss.start();
 for(let i=0;i<260 && (Game.lilithBoss.state==='intro'||Game.lilithBoss.state==='vanish'||Game.lilithBoss.alpha<0.5);i++){Game.update(1/60);Input.endFrame();}
 {
   const p=Game.player; p.x=Game.lilithBoss.x+8; p.y=400; p.atkDir=0; p.facing=1;
   ok(rectsOverlap(p.attackBox(), Game.lilithBoss.rect()),'grounded melee reaches Lilith');
 }
-Game.player.x=(21080+22760)/2; Game.player.y=400; Game.player.dead=false; Game.player.hp=10;
-let lP2=false;
-for(let i=0;i<8000 && !Game.lilithDefeated;i++){
+Game.player.x=(Game.lilithBoss.x); Game.player.y=400; Game.player.dead=false; Game.player.hp=10;
+let lP2=false, fruitSeen=false; const moves=new Set();
+for(let i=0;i<9000 && !Game.lilithDefeated;i++){
   if(Game.player.dead){Game.player.dead=false;Game.player.hp=10;}
   Game.player.invuln=1;
-  if(i%8===0 && Game.lilithBoss.active && !Game.lilithBoss.dead) Game.lilithBoss.takeHit(1,1);
+  if(i%9===0 && Game.lilithBoss.active && !Game.lilithBoss.dead) Game.lilithBoss.takeHit(1,1);
   if(Game.lilithBoss.phase2) lP2=true;
+  if(Game.fruits.length) fruitSeen=true;
+  moves.add(Game.lilithBoss.state);
   Game.update(1/60);Input.endFrame();
 }
+const newMoves=['song','kiss_slash','claw','charge','dive','beams','wail','summon'].filter(m=>{
+  return [...moves].some(s=>s===m||s==='tele_'+m||s==='vanish'&&m==='kiss_slash');
+});
 ok(lP2,'Lilith reaches her corrupted-Eden phase (50% HP)');
+ok(!fruitSeen,'no falling fruit/apples in the remade fight');
+ok(moves.size>=6,'Lilith cycles a rich move set ('+moves.size+' states seen)');
 ok(Game.lilithDefeated,'Lilith can be defeated');
 ok(Game.lilithCorrupted===false,'corruption clears when Lilith falls');
 
