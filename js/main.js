@@ -11,6 +11,16 @@ const AREA_TITLES = {
   purgatory: ['PURGATORY', 'Mountain of the Seven Cornices'],
 };
 
+// start-of-run level select. cp = checkpoint index; prog = 1 means start with
+// the Gates boss already beaten (grants the permanent double-jump + bonus HP).
+const SELECT_LEVELS = [
+  { name: 'FLORENCE',       sub: 'Beneath the Violet Dusk',          cp: 0, prog: 0 },
+  { name: 'THE DESCENT',    sub: 'Road of Ash and Iron',            cp: 1, prog: 0 },
+  { name: 'THE GATES',      sub: 'The Warden Asterion Waits',       cp: 2, prog: 0 },
+  { name: 'LIMBO',          sub: 'The First Circle',                cp: 3, prog: 1 },
+  { name: 'PURGATORY',      sub: 'Mountain of the Seven Cornices',  cp: 4, prog: 1 },
+];
+
 const Game = {
   state: 'title',          // title | play | victory
   paused: false,
@@ -33,6 +43,7 @@ const Game = {
   titleCam: 0, titleDir: 1,
   time: 0,
   beatriceScene: null,
+  selIdx: 0,
 
   init() {
     BG.init();
@@ -164,6 +175,30 @@ const Game = {
     if (!keepBossDead) AudioSys.setZone(musicZoneAt(this.player.x));
   },
 
+  // begin a run at the chosen level
+  startLevel(idx) {
+    const L = SELECT_LEVELS[idx] || SELECT_LEVELS[0];
+    this.resetWorld(true);
+    const cp = CHECKPOINTS[L.cp];
+    if (L.prog >= 1) {
+      // skip ahead past the Gates boss with its rewards already granted
+      this.bossDefeated = true;
+      this.permaDoubleJump = true;
+      this.bonusHp = 5;
+      this.boss.dead = true; this.boss.finished = true; this.boss.active = false; this.boss.state = 'gone';
+      this.player.maxHp = 10; this.player.hp = 10;
+      HUD.prevHp = 10;
+    }
+    this.respawn = { x: cp.x, y: cp.y };
+    this.activeCheckpoint = L.cp;
+    this.player.x = cp.x; this.player.y = cp.y;
+    this.player.lastSafe = { x: cp.x, y: cp.y };
+    this._zone = null;            // so the area-title card shows for this zone
+    this.state = 'play';
+    this.respawnFade = 0.6;
+    AudioSys.setZone(musicZoneAt(cp.x));
+  },
+
   startEnding() {
     this.endStarted = true;
     this.cinematic = true;
@@ -192,11 +227,22 @@ const Game = {
       if (this.titleCam < 0) this.titleDir = 1;
       this.camX = this.titleCam;
       AudioSys.setZone('village');
-      if (Input.confirmP()) {
-        this.state = 'play';
-        this.resetWorld(true);
-        this.respawnFade = 0.6;
+      if (Input.confirmP()) { this.state = 'select'; this.selIdx = 0; }
+      return;
+    }
+
+    if (this.state === 'select') {
+      this.camX = this.titleCam;
+      AudioSys.setZone('village');
+      const n = SELECT_LEVELS.length;
+      if (Input.pressed['ArrowUp'] || Input.pressed['KeyW']) this.selIdx = (this.selIdx + n - 1) % n;
+      if (Input.pressed['ArrowDown'] || Input.pressed['KeyS']) this.selIdx = (this.selIdx + 1) % n;
+      // pointer (mouse/tap) picks a row directly
+      if (Input.pointer.pressed) {
+        const i = Screens.selectRowAt(Input.pointer.y);
+        if (i >= 0) { this.startLevel(i); return; }
       }
+      if (Input.confirmP()) { this.startLevel(this.selIdx); }
       return;
     }
 
@@ -527,7 +573,7 @@ const Game = {
       ctx.fill();
     }
 
-    if (this.state !== 'title') {
+    if (this.state === 'play' || this.state === 'victory') {
       this.beatrice.draw(cx, cy, this.time);
       for (const pk of this.pickups) pk.draw(cx, cy, this.time);
       for (const n of this.npcs) if (!n.dead) this.drawBig(n, cx, cy);
@@ -554,6 +600,10 @@ const Game = {
 
     if (this.state === 'title') {
       Screens.drawTitle(this.time);
+      return;
+    }
+    if (this.state === 'select') {
+      Screens.drawSelect(this.selIdx, this.time);
       return;
     }
 

@@ -389,6 +389,62 @@ const Screens = {
     ctx.restore();
   },
 
+  // ---- level select ----
+  selRowY0: 168, selRowH: 62,
+  selectRowAt(gameY) {
+    for (let i = 0; i < SELECT_LEVELS.length; i++) {
+      const cy = this.selRowY0 + i * this.selRowH;
+      if (Math.abs(gameY - cy) < this.selRowH / 2 - 4) return i;
+    }
+    return -1;
+  },
+  drawSelect(sel, time) {
+    ctx.fillStyle = 'rgba(8,5,16,0.78)';
+    ctx.fillRect(0, 0, VW, VH);
+    ctx.save();
+    ctx.textAlign = 'center';
+    const grad = ctx.createLinearGradient(0, 70, 0, 120);
+    grad.addColorStop(0, '#f8e8d0'); grad.addColorStop(1, '#c89058');
+    ctx.fillStyle = grad;
+    ctx.font = '40px Georgia';
+    ctx.shadowColor = '#000'; ctx.shadowBlur = 14;
+    ctx.fillText('CHOOSE YOUR DESCENT', VW / 2, 108);
+    ctx.shadowBlur = 0;
+    for (let i = 0; i < SELECT_LEVELS.length; i++) {
+      const L = SELECT_LEVELS[i];
+      const cy = this.selRowY0 + i * this.selRowH;
+      const on = i === sel;
+      const w = 460, x = VW / 2 - w / 2;
+      ctx.fillStyle = on ? 'rgba(120,40,52,0.6)' : 'rgba(20,14,30,0.55)';
+      ctx.strokeStyle = on ? '#f4d8b0' : '#5a4d82';
+      ctx.lineWidth = on ? 2 : 1;
+      ctx.beginPath(); ctx.roundRect(x, cy - 24, w, 48, 8); ctx.fill(); ctx.stroke();
+      if (on) {
+        ctx.fillStyle = '#ffcf78';
+        ctx.beginPath(); ctx.moveTo(x - 14, cy - 7); ctx.lineTo(x - 4, cy); ctx.lineTo(x - 14, cy + 7); ctx.closePath(); ctx.fill();
+      }
+      ctx.textAlign = 'left';
+      ctx.font = '22px Georgia';
+      ctx.fillStyle = on ? '#fff' : '#cabfe0';
+      ctx.fillText(L.name, x + 22, cy - 1);
+      ctx.font = 'italic 13px Georgia';
+      ctx.fillStyle = on ? '#e8d0b0' : '#8a7ca8';
+      ctx.fillText(L.sub, x + 22, cy + 16);
+      if (L.prog >= 1) {
+        ctx.textAlign = 'right';
+        ctx.font = '11px Georgia';
+        ctx.fillStyle = '#9adcb0';
+        ctx.fillText('✦ double-jump · 10 HP', x + w - 16, cy + 2);
+      }
+      ctx.textAlign = 'center';
+    }
+    ctx.font = '13px Georgia';
+    ctx.fillStyle = `rgba(244,236,216,${0.5 + Math.sin(time * 3) * 0.3})`;
+    ctx.fillText('↑ ↓ choose · ENTER / TAP to begin', VW / 2, VH - 28);
+    ctx.restore();
+    ctx.textAlign = 'left';
+  },
+
   drawAreaTitle(name, sub, t) {
     // fade in/out over the 4.2s lifetime
     const a = clamp(Math.min(t, 4.2 - t) * 1.3, 0, 1);

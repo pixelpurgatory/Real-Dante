@@ -97,7 +97,8 @@ function step(n, fn) {
 
 try {
   // ---- title -> play
-  press('Enter'); step(1);
+  press('Enter'); step(1);  // title -> select
+  press('Enter'); step(1);  // select -> play (Florence)
   step(5);
   console.log('state after enter:', Game.state, 'player x', Math.round(Game.player.x));
 
@@ -128,7 +129,7 @@ try {
   console.log('enemies alive', Game.enemies.filter(e=>!e.dead).length, 'particles', sandbox.Particles.list.length);
 
   // ---- scripted GATES BOSS (Asterion) ----
-  Game.state = 'title'; press('Enter'); step(2);
+  Game.state = 'title'; press('Enter'); step(1); press('Enter'); step(1);
   Input.keys = {};
   Game.player.x = 6940; Game.player.y = 400; Game.player.hp = 5; Game.player.dead = false;
   step(20);

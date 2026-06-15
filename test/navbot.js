@@ -44,6 +44,7 @@ function hazardAt(x){
 }
 
 press('Enter');Game.update(STEP);Input.endFrame();
+press('Enter');Game.update(STEP);Input.endFrame();
 const PURE = process.argv.includes('--pure');
 if(PURE) Game.enemies=[]; // isolate geometry reachability
 

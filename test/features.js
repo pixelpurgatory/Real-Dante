@@ -10,10 +10,12 @@ const files=['core.js','audio.js','level.js','background.js','actors.js','system
 let b='';for(const f of files)b+='\n'+fs.readFileSync('js/'+f,'utf8');
 b+='\nglobalThis.Game=Game;globalThis.Input=Input;globalThis.Particles=Particles;globalThis.Dialogue=Dialogue;'
  +'globalThis.spawnEnemy=spawnEnemy;globalThis.makeNPC=makeNPC;globalThis.Gore=Gore;'
- +'globalThis.rectsOverlap=rectsOverlap;globalThis.isStomp=isStomp;';
+ +'globalThis.rectsOverlap=rectsOverlap;globalThis.isStomp=isStomp;'
+ +'globalThis.Screens=Screens;globalThis.CHECKPOINTS=CHECKPOINTS;globalThis.SELECT_LEVELS=SELECT_LEVELS;';
 vm.runInContext(b,sb);
-const {Game,Input,Particles,Dialogue,spawnEnemy,makeNPC,Gore,rectsOverlap,isStomp}=sb;
+const {Game,Input,Particles,Dialogue,spawnEnemy,makeNPC,Gore,rectsOverlap,isStomp,Screens,CHECKPOINTS,SELECT_LEVELS}=sb;
 let fails=0; const ok=(c,m)=>{console.log((c?'  ok  ':'  FAIL')+'  '+m); if(!c)fails++;};
+Input.pressed['Enter']=true;Game.update(1/60);Input.endFrame();
 Input.pressed['Enter']=true;Game.update(1/60);Input.endFrame();
 const pl=Game.player;
 
@@ -107,6 +109,18 @@ let dP3=false;
 for(let i=0;i<6000 && !Game.deathDefeated;i++){ if(Game.player.dead){Game.player.dead=false;Game.player.hp=5;} Game.player.invuln=1; if(i%8===0&&Game.deathBoss.active&&!Game.deathBoss.dead)Game.deathBoss.takeHit(1,1); if(Game.deathBoss.phase3)dP3=true; Game.update(1/60);Input.endFrame(); }
 ok(dP3,'Death reaches phase 3 (40% HP)');
 ok(Game.deathDefeated,'Death can be defeated');
+
+console.log('--- level select ---');
+Game.state='title'; Input.pressed={}; Input.vpressed={};
+Input.pressed['Enter']=true; Game.update(1/60); Input.endFrame();
+ok(Game.state==='select','title opens the level-select menu');
+ok(Screens.selectRowAt(Screens.selRowY0)===0 && Screens.selectRowAt(Screens.selRowY0+Screens.selRowH)===1,'menu rows hit-test correctly');
+Game.startLevel(3); // Limbo (prog 1)
+ok(Game.state==='play','selecting a level starts play');
+ok(Math.abs(Game.player.x - CHECKPOINTS[3].x) < 2,'spawns at the chosen checkpoint');
+ok(Game.bossDefeated && Game.permaDoubleJump && Game.player.maxHp===10,'starting past the Gates grants its progress (double-jump + 10 HP)');
+Game.startLevel(0); // Florence fresh
+ok(!Game.bossDefeated && Game.player.maxHp===5,'starting at Florence is a fresh run');
 
 console.log(fails?('\nFEATURE TESTS: '+fails+' FAILURES'):'\nFEATURE TESTS: all passed');
 process.exit(fails?1:0);
