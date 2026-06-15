@@ -429,9 +429,10 @@ const BG = {
     this.brokenColumn(g, 4980, 426, 22, 90, '#2e2040');
     this.brokenColumn(g, 5500, 436, 24, 120, '#2e2040');
 
-    // gates zone: grand colonnade + THE GATE
+    // gates zone: grand colonnade; THE GATE now stands AFTER the arena so the
+    // player walks through it into Limbo once the warden is slain
     for (let i = 0; i < 4; i++) this.brokenColumn(g, 5850 + i * 170, 436, 26, 150 + (i % 2) * 40, '#231126');
-    this.hellGate(g, 6620, 436);
+    this.hellGate(g, 7892, 436);
 
     // arena back wall texture: hanging chains
     g.fillStyle = '#1c0d18';
@@ -656,6 +657,17 @@ const BG = {
       g.fillRect(p.x, p.y, p.w, 6);
       g.fillStyle = 'rgba(255,255,255,0.18)';
       g.fillRect(p.x, p.y, p.w, 2);
+      // blessing-shrine platforms get a carved golden rune face
+      if (p.puzzle) {
+        g.fillStyle = '#caa84a';
+        g.fillRect(p.x, p.y, p.w, 3);
+        g.fillStyle = 'rgba(255,225,150,0.5)';
+        g.fillRect(p.x + 2, p.y + 4, p.w - 4, 2);
+        g.fillStyle = 'rgba(200,168,90,0.6)';
+        for (let rx = p.x + 8; rx < p.x + p.w - 8; rx += 16) g.fillRect(rx, p.y + 8, 6, 2);
+        g.strokeStyle = '#caa84a'; g.lineWidth = 1.5;
+        g.strokeRect(p.x + 1, p.y + 1, p.w - 2, p.h - 2);
+      }
       // grass tufts in village / ash in limbo
       const zone = this.zoneOf(p.x + p.w / 2);
       if (zone === 'village') {

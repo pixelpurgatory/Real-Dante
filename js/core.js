@@ -110,6 +110,12 @@ function rectsOverlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+// true when the player is descending onto the top of a target (a "stomp"),
+// so they should NOT take contact damage from it
+function isStomp(pl, r) {
+  return pl.vy > 30 && (pl.y + pl.h) - r.y < r.h * 0.55;
+}
+
 // color lerp for palette blending: '#rrggbb'
 function hexToRgb(h) {
   return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];

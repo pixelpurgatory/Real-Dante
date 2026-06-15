@@ -3,6 +3,14 @@
 // Main: game state machine, loop, camera, world interactions
 // ============================================================
 
+const AREA_TITLES = {
+  village:   ['FLORENCE', 'Beneath the Violet Dusk'],
+  descent:   ['THE DESCENT', 'Road of Ash and Iron'],
+  gates:     ['THE GATES OF HELL', 'Abandon All Hope'],
+  limbo:     ['LIMBO', 'The First Circle'],
+  purgatory: ['PURGATORY', 'Mountain of the Seven Cornices'],
+};
+
 const Game = {
   state: 'title',          // title | play | victory
   paused: false,
@@ -20,7 +28,7 @@ const Game = {
   endStarted: false, endT: 0, victoryT: 0,
   respawnFade: 0,
   bossDefeated: false, deathDefeated: false,
-  permaDoubleJump: false, bonusHp: 0, respawnBuffs: false,
+  permaDoubleJump: false, bonusHp: 0, respawnBuffs: false, bossDeaths: 0, deathBossDeaths: 0,
   sinnerT: 0,
   titleCam: 0, titleDir: 1,
   time: 0,
@@ -45,6 +53,8 @@ const Game = {
       this.deathDefeated = false;
       this.permaDoubleJump = false;
       this.bonusHp = 0;
+      this.bossDeaths = 0;
+      this.deathBossDeaths = 0;
       this.triggers = TRIGGERS.map(t => Object.assign({ fired: false }, t));
       this.beatrice = makeBeatrice();
       this.endStarted = false;
@@ -74,9 +84,11 @@ const Game = {
     this.arenaWalls = [];
     // gates boss
     this.boss = makeMinotaur();
+    if (this.bossDeaths >= 10) { this.boss.hp = this.boss.maxHp = Math.ceil(this.boss.maxHp / 2); } // mercy after 10 deaths
     if (this.bossDefeated) { this.boss.dead = true; this.boss.finished = true; this.boss.active = false; this.boss.state = 'gone'; }
     // purgatory boss (Death)
     this.deathBoss = makeDeath();
+    if (this.deathBossDeaths >= 10) { this.deathBoss.hp = this.deathBoss.maxHp = Math.ceil(this.deathBoss.maxHp / 2); }
     if (this.deathDefeated) { this.deathBoss.dead = true; this.deathBoss.finished = true; this.deathBoss.active = false; this.deathBoss.state = 'gone'; }
     Dialogue.clear();
   },
@@ -90,6 +102,18 @@ const Game = {
     this.fx.push(Object.assign({ type, x, y, t: 0, life: type === 'bigslash' ? 0.22 : 0.16 }, opts));
   },
 
+  // brief booming boss taunt (throttled so it never spams mid-fight)
+  bossLine(who, text) {
+    if (this._lastBossLineT && this.time - this._lastBossLineT < 3.5) return;
+    this._lastBossLineT = this.time;
+    Dialogue.say([{ s: 'voice', t: text }], { x: VW / 2, y: 120 });
+  },
+
+  // Hollow-Knight-style area title card on first entering a zone
+  showAreaTitle(name, sub) {
+    this.areaTitle = name; this.areaSub = sub || ''; this.areaTitleT = 4.2;
+  },
+
   onBossDead() {
     this.bossDefeated = true;
     this.arenaWalls = [];
@@ -101,9 +125,13 @@ const Game = {
     this.player.maxHp = 5 + this.bonusHp;
     this.player.hp = this.player.maxHp;
     HUD.prevHp = this.player.hp;
+    // story cinematic bridging the Gates into the deeper circles
+    this.cinematic = true; this.cineUntilDialogue = true;
     Dialogue.say([
-      { s: 'dante', t: "Even Hell's wardens fall. The Bull's strength is mine now." },
-      { s: 'dante', t: "My heart beats stronger — and the air itself will bear me up. Hold on, Beatrice." },
+      { s: 'dante', t: "The Bull falls. Its strength floods my arms — my heart beats stronger, and the air will bear me up now." },
+      { s: 'beatrice', t: "Dante... you crossed the threshold no living man should. I feel you nearer." },
+      { s: 'dante', t: "I felt your hand the moment the gate opened. Whatever keeps you, I am coming through every circle to take you back." },
+      { s: 'beatrice', t: "Then climb, beloved — past Limbo's sighs, up the burning Mountain. But beware: deeper down, He is watching us both." },
     ]);
     // set forward checkpoint automatically
     this.respawn = { x: CHECKPOINTS[3].x, y: CHECKPOINTS[3].y };
@@ -200,13 +228,23 @@ const Game = {
         (this.deathBoss && this.deathBoss.active && !this.deathBoss.dead)) AudioSys.setZone('boss');
     else AudioSys.setZone(musicZoneAt(pl.x));
 
+    // area title card (Hollow-Knight style) on entering a new zone
+    if (this.areaTitleT > 0) this.areaTitleT -= dt;
+    const zone = BG.zoneOf(pl.x);
+    if (zone !== this._zone) {
+      this._zone = zone;
+      const T = AREA_TITLES[zone];
+      if (T) this.showAreaTitle(T[0], T[1]);
+    }
+
     // player
     pl.update(dt);
 
-    // note a death that happened during the boss fight (newsletter trigger)
+    // note a death during a boss fight (newsletter trigger + difficulty mercy)
     if (pl.dead && !this._wasDead) {
       this._wasDead = true;
-      if (this.boss && this.boss.active && !this.boss.dead) this.pendingNewsletter = true;
+      if (this.boss && this.boss.active && !this.boss.dead) { this.pendingNewsletter = true; this.bossDeaths++; }
+      if (this.deathBoss && this.deathBoss.active && !this.deathBoss.dead) this.deathBossDeaths++;
     }
     if (!pl.dead) this._wasDead = false;
 
@@ -254,10 +292,11 @@ const Game = {
         continue;
       }
       e.update(dt, pl);
-      // contact damage
+      // contact damage (stomping from above is safe and bounces you)
       if (!e.dead && pl.invuln <= 0) {
         if (rectsOverlap(e.rect(), pl)) {
-          pl.hurt(e.touchDmg, e.x + e.w / 2);
+          if (isStomp(pl, e.rect())) { pl.vy = -360; pl.canDash = true; }
+          else pl.hurt(e.touchDmg, e.x + e.w / 2);
         } else if (e.thrustBox && rectsOverlap(e.thrustBox, pl)) {
           pl.hurt(1, e.x + e.w / 2);
         }
@@ -330,7 +369,10 @@ const Game = {
     for (const sn of this.sinners) {
       if (sn.dead) continue;
       sn.update(dt, pl);
-      if (!sn.dead && pl.invuln <= 0 && rectsOverlap(sn.rect(), pl)) pl.hurt(sn.touchDmg, sn.x + sn.w / 2);
+      if (!sn.dead && pl.invuln <= 0 && rectsOverlap(sn.rect(), pl)) {
+        if (isStomp(pl, sn.rect())) { pl.vy = -340; sn.takeHit(1, pl.facing); }
+        else pl.hurt(sn.touchDmg, sn.x + sn.w / 2);
+      }
     }
     this.sinners = this.sinners.filter(s => !s.dead);
 
@@ -359,6 +401,10 @@ const Game = {
     if (this.beatriceScene && !Dialogue.busy()) {
       this.beatrice.advance();
       this.beatriceScene = null;
+    }
+    // release control once a mid-game story cinematic's dialogue is done
+    if (this.cineUntilDialogue && !Dialogue.busy() && !this.modalOpen) {
+      this.cineUntilDialogue = false; this.cinematic = false;
     }
 
     // checkpoints
@@ -518,6 +564,7 @@ const Game = {
                        : (this.boss && this.boss.active && !this.boss.finished) ? this.boss : null;
       if (activeBoss) HUD.drawBossBar(activeBoss, this.time);
       HUD.drawBuffs(this.player, this.time);
+      if (this.areaTitleT > 0 && !activeBoss) Screens.drawAreaTitle(this.areaTitle, this.areaSub, this.areaTitleT);
       Dialogue.draw(cx, cy, this.time);
       if (AudioSys.muted) {
         ctx.font = '11px Georgia';
