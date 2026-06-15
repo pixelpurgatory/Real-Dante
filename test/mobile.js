@@ -44,6 +44,7 @@ const devices = [
 
 // start the game once (so draw exercises play state)
 Input.pressed['Enter']=true; Game.update(1/60); Input.endFrame();
+Input.pressed['Enter']=true; Game.update(1/60); Input.endFrame();
 for(let i=0;i<10;i++){Game.update(1/60);Input.endFrame();}
 
 console.log('--- per-device layout ---');

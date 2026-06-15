@@ -135,6 +135,7 @@ const Input = {
   // virtual (touch) input, merged into the accessors below
   vheld: {},            // action -> bool (held this frame)
   vpressed: {},         // action -> bool (went down this frame)
+  pointer: { x: 0, y: 0, pressed: false },  // last click/tap in game (stage) coords
 
   init() {
     window.addEventListener('keydown', e => {
@@ -146,11 +147,21 @@ const Input = {
     });
     window.addEventListener('keyup', e => { this.keys[e.code] = false; });
     canvas.addEventListener('mousedown', e => {
-      if (e.button === 0) { this.mouseDown = true; this.mousePressed = true; }
+      if (e.button === 0) { this.mouseDown = true; this.mousePressed = true; this.setPointer(e.clientX, e.clientY); }
       AudioSys.unlock();
     });
     window.addEventListener('mouseup', e => { if (e.button === 0) this.mouseDown = false; });
     window.addEventListener('blur', () => { this.keys = {}; this.mouseDown = false; this.vheld = {}; });
+  },
+
+  // record a click/tap in game (stage) coordinates for menu hit-testing
+  setPointer(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    const cx = (clientX - r.left) / r.width * canvas.width;
+    const cy = (clientY - r.top) / r.height * canvas.height;
+    this.pointer.x = (cx - STAGE.ox) / (STAGE.scale || 1);
+    this.pointer.y = (cy - STAGE.oy) / (STAGE.scale || 1);
+    this.pointer.pressed = true;
   },
 
   endFrame() {
@@ -158,6 +169,7 @@ const Input = {
     this.mousePressed = false;
     this.anyKey = false;
     this.vpressed = {};
+    this.pointer.pressed = false;
   },
 
   left()   { return this.keys['KeyA'] || this.keys['ArrowLeft']  || this.vheld.left; },

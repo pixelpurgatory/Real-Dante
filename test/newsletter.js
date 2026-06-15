@@ -60,6 +60,7 @@ const sleep = ms => new Promise(r=>setTimeout(r,ms));
   console.log('--- in-game trigger: defeating the boss ---');
   // start + run boss fight to death
   Input.pressed['Enter']=true; Game.update(1/60); Input.endFrame();
+  Input.pressed['Enter']=true; Game.update(1/60); Input.endFrame();
   Game.player.x=6940; Game.player.y=400; Game.player.hp=5; Game.player.dead=false;
   for(let i=0;i<30;i++){Game.update(1/60);Input.endFrame();}
   let guard=0;

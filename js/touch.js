@@ -92,11 +92,13 @@ const TouchUI = {
     for (const t of e.touches) this.touches[t.identifier] = this.toCanvas(t);
 
     if (phase === 'start' && e.changedTouches.length) {
-      const v = this.toCanvas(e.changedTouches[0]);
+      const ct = e.changedTouches[0];
+      const v = this.toCanvas(ct);
       const hit = this.hitButton(v.x, v.y);
       if (hit && hit.id === 'full') { Fullscreen.toggle(); return; }
       const inMenu = (typeof Game === 'undefined') || Game.state !== 'play';
       if (inMenu) {
+        Input.setPointer(ct.clientX, ct.clientY);  // for menu hit-testing
         Input.vpressed.confirm = true;
         Input.vheld = {}; this.heldNow = {}; this.prevHeld = {};
         this.knob.active = false;
